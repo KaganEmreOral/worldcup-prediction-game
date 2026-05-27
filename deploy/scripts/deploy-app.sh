@@ -53,18 +53,30 @@ check_port() {
   return 0
 }
 
+compose_stack_running() {
+  local ids
+  ids="$("${COMPOSE[@]}" ps -q 2>/dev/null || true)"
+  [[ -n "$ids" ]]
+}
+
 PORT_OK=1
 check_port "$FRONTEND_HOST_PORT" "frontend" || PORT_OK=0
 check_port "$BACKEND_HOST_PORT" "backend" || PORT_OK=0
 
 if [[ "$PORT_OK" -eq 0 ]]; then
-  echo ""
-  echo "==> Stale World Cup containers (if any):"
-  "${COMPOSE[@]}" ps 2>/dev/null || true
-  echo ""
-  echo "Try: docker compose -f docker-compose.prod.yml --env-file .env.production down"
-  echo "Then fix the port conflict and re-run this script."
-  exit 1
+  if compose_stack_running; then
+    echo ""
+    echo "==> Ports ${FRONTEND_HOST_PORT}/${BACKEND_HOST_PORT} are in use by this stack — redeploying in place (rebuild + restart)."
+    "${COMPOSE[@]}" ps 2>/dev/null || true
+  else
+    echo ""
+    echo "==> Port conflict — not owned by worldcup-prediction-game compose project:"
+    "${COMPOSE[@]}" ps 2>/dev/null || true
+    echo ""
+    echo "Try: docker compose -f docker-compose.prod.yml --env-file .env.production down"
+    echo "Or free the ports, then re-run this script."
+    exit 1
+  fi
 fi
 
 # Stop dev stack nginx if it was binding port 80
