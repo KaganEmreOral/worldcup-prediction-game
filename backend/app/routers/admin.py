@@ -12,6 +12,7 @@ from app.services.group_simulation import MatchResult, compute_group_standings, 
 from app.services.knockout_generator import generate_r32_bracket
 from app.services.match_scoring import on_match_result_updated
 from app.services.recalculation import recalculate_all
+from app.services.tournament_state import recompute_tournament_state, reset_all_match_results
 from app.services.tournament_config import get_knockout_rules
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -55,7 +56,22 @@ async def reset_user_predictions(
     await db.execute(delete(Prediction).where(Prediction.user_id == user_id))
     await db.execute(delete(KnockoutPrediction).where(KnockoutPrediction.user_id == user_id))
     await db.execute(delete(SpecialPrediction).where(SpecialPrediction.user_id == user_id))
-    return {"message": f"Predictions reset for user {user_id}"}
+    await db.flush()
+    recompute = await recompute_tournament_state(db, trigger_source="admin_reset_user_predictions")
+    return {
+        "message": f"Predictions reset for user {user_id}",
+        "recompute": recompute,
+        "leaderboard": recompute.get("leaderboard", []),
+    }
+
+
+@router.post("/reset-match-results")
+async def reset_match_results_endpoint(
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Clear all real match results and rebuild leaderboard / homepage projections."""
+    return await reset_all_match_results(db)
 
 
 @router.get("/matches")
@@ -186,15 +202,15 @@ async def update_settings(
     await db.flush()
 
     scoring_result = None
-    if settings.actual_top_scorer or settings.actual_top_assister:
-        scoring_result = await recalculate_all(db, trigger_source="admin_special_settings")
+    if data.actual_top_scorer is not None or data.actual_top_assister is not None:
+        scoring_result = await recompute_tournament_state(db, trigger_source="admin_special_settings")
 
     return {"message": "Settings updated", "scoring": scoring_result}
 
 
 @router.post("/recalculate")
 async def trigger_recalculation(admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db)):
-    result = await recalculate_all(db)
+    result = await recompute_tournament_state(db, trigger_source="admin_manual_recalculate")
     return result
 
 

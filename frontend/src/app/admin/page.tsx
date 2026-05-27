@@ -13,6 +13,17 @@ export default function AdminPage() {
   const qc = useQueryClient();
   const [recalcMsg, setRecalcMsg] = useState("");
   const [matchSaveMsg, setMatchSaveMsg] = useState("");
+  const [resetMsg, setResetMsg] = useState("");
+
+  const invalidateAllData = () => {
+    qc.invalidateQueries({ queryKey: ["leaderboard"] });
+    qc.invalidateQueries({ queryKey: ["scoring-events"] });
+    qc.invalidateQueries({ queryKey: ["daily"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+    qc.invalidateQueries({ queryKey: ["admin-matches"] });
+    qc.invalidateQueries({ queryKey: ["matches"] });
+    qc.invalidateQueries({ queryKey: ["standings"] });
+  };
   const [importMsg, setImportMsg] = useState("");
   const [testingMsg, setTestingMsg] = useState("");
 
@@ -58,16 +69,16 @@ export default function AdminPage() {
 
   const updateSettings = useMutation({
     mutationFn: adminApi.updateSettings,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-settings"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-settings"] });
+      invalidateAllData();
+    },
   });
 
   const updateMatch = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => adminApi.updateMatch(id, data),
     onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ["admin-matches"] });
-      qc.invalidateQueries({ queryKey: ["leaderboard"] });
-      qc.invalidateQueries({ queryKey: ["scoring-events"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      invalidateAllData();
       const s = data.scoring;
       if (s?.scored) {
         setMatchSaveMsg(`Scored ${s.users_scored ?? 0} users — leaderboard updated`);
@@ -82,14 +93,26 @@ export default function AdminPage() {
   const recalculate = useMutation({
     mutationFn: adminApi.recalculate,
     onSuccess: (data) => {
-      setRecalcMsg(`Scored ${data.users_scored} users`);
-      qc.invalidateQueries({ queryKey: ["leaderboard"] });
+      setRecalcMsg(`Recomputed ${data.users_scored} users`);
+      invalidateAllData();
+    },
+  });
+
+  const resetMatchResults = useMutation({
+    mutationFn: adminApi.resetMatchResults,
+    onSuccess: (data) => {
+      setResetMsg(`${data.message} — leaderboard refreshed`);
+      setMatchSaveMsg("");
+      invalidateAllData();
     },
   });
 
   const resetPreds = useMutation({
     mutationFn: adminApi.resetPredictions,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-users"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+      invalidateAllData();
+    },
   });
 
   const fillRandom = useMutation({
@@ -208,6 +231,21 @@ export default function AdminPage() {
                 defaultValue={settings?.actual_top_assister ?? ""}
                 onBlur={(e) => updateSettings.mutate({ actual_top_assister: e.target.value })}
               />
+            </div>
+            <div className="pt-4 border-t border-pitch-600">
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm("Clear ALL match results and reset scores? This cannot be undone.")) {
+                    resetMatchResults.mutate();
+                  }
+                }}
+                disabled={resetMatchResults.isPending}
+                className="btn-secondary w-full text-red-300 border-red-500/40"
+              >
+                {resetMatchResults.isPending ? "Resetting…" : "Reset All Match Results"}
+              </button>
+              {resetMsg && <p className="text-green-400 text-sm mt-2">{resetMsg}</p>}
             </div>
           </div>
         </div>

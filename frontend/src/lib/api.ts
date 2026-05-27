@@ -236,7 +236,14 @@ export const admin = {
     }>("/admin/settings"),
   updateSettings: (data: Record<string, unknown>) =>
     api<{ message: string }>("/admin/settings", { method: "PATCH", body: JSON.stringify(data) }),
-  recalculate: () => api<{ users_scored: number; leaderboard: unknown[] }>("/admin/recalculate", { method: "POST" }),
+  recalculate: () => api<{ users_scored: number; leaderboard: unknown[]; recomputed?: boolean }>("/admin/recalculate", { method: "POST" }),
+  resetMatchResults: () =>
+    api<{
+      message: string;
+      matches_reset: number;
+      recompute: { users_scored: number; leaderboard: LeaderboardEntry[] };
+      leaderboard: LeaderboardEntry[];
+    }>("/admin/reset-match-results", { method: "POST" }),
   resetPredictions: (userId: number) =>
     api<{ message: string }>(`/admin/users/${userId}/reset-predictions`, { method: "POST" }),
   importTournament: (slug: string, reset = false) =>

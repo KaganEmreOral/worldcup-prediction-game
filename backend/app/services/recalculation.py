@@ -59,6 +59,7 @@ async def recalculate_all(
     *,
     trigger_match_id: int | None = None,
     trigger_source: str = "manual",
+    skip_derived_clear: bool = False,
 ) -> dict:
     from app.seeds.tournament_loader import get_active_tournament
 
@@ -68,8 +69,11 @@ async def recalculate_all(
         trigger_source,
     )
 
-    invalidate("dashboard")
-    invalidate("standings")
+    if not skip_derived_clear:
+        invalidate(None)
+    else:
+        invalidate("dashboard")
+        invalidate("standings")
 
     tournament = await get_active_tournament(db)
     teams_by_group = await _load_teams_by_group(db)
@@ -97,9 +101,14 @@ async def recalculate_all(
     leaderboard = []
     recent_events: list[dict] = []
 
-    await db.execute(delete(GroupStandingsCache))
-    await db.execute(delete(KnockoutBracketCache))
-    await db.execute(delete(UserMatchScore))
+    if skip_derived_clear:
+        await db.execute(delete(GroupStandingsCache))
+        await db.execute(delete(KnockoutBracketCache))
+        await db.execute(delete(UserMatchScore))
+    else:
+        from app.services.tournament_state import clear_derived_state
+
+        await clear_derived_state(db)
 
     predictions_count = 0
     for user in users:
