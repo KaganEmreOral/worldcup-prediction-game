@@ -90,6 +90,7 @@ class User(Base):
     predictions: Mapped[list["Prediction"]] = relationship(back_populates="user")
     special_prediction: Mapped["SpecialPrediction | None"] = relationship(back_populates="user", uselist=False)
     score: Mapped["UserScore | None"] = relationship(back_populates="user", uselist=False)
+    match_scores: Mapped[list["UserMatchScore"]] = relationship(back_populates="user")
     standings_cache: Mapped[list["GroupStandingsCache"]] = relationship(back_populates="user")
 
 
@@ -147,6 +148,7 @@ class Match(Base):
     team_a: Mapped["Team"] = relationship(foreign_keys=[team_a_id], back_populates="group_matches_a")
     team_b: Mapped["Team"] = relationship(foreign_keys=[team_b_id], back_populates="group_matches_b")
     predictions: Mapped[list["Prediction"]] = relationship(back_populates="match")
+    user_match_scores: Mapped[list["UserMatchScore"]] = relationship(back_populates="match")
 
 
 class Prediction(Base):
@@ -161,6 +163,23 @@ class Prediction(Base):
 
     user: Mapped["User"] = relationship(back_populates="predictions")
     match: Mapped["Match"] = relationship(back_populates="predictions")
+
+
+class UserMatchScore(Base):
+    """Per-match points ledger — idempotent; one row per user per match."""
+
+    __tablename__ = "user_match_scores"
+    __table_args__ = (UniqueConstraint("user_id", "match_id", name="uq_user_match_score"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"), nullable=False, index=True)
+    points_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    breakdown_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="match_scores")
+    match: Mapped["Match"] = relationship(back_populates="user_match_scores")
 
 
 class SpecialPrediction(Base):

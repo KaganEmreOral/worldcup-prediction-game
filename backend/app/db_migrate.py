@@ -35,6 +35,19 @@ MIGRATIONS = [
     "UPDATE users SET username = COALESCE(username, 'user_' || id::text) WHERE username IS NULL",
     "ALTER TABLE users ALTER COLUMN username SET NOT NULL",
     "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_username ON users(username)",
+    """
+    CREATE TABLE IF NOT EXISTS user_match_scores (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        match_id INTEGER NOT NULL REFERENCES matches(id),
+        points_earned INTEGER NOT NULL DEFAULT 0,
+        breakdown_json JSONB,
+        updated_at TIMESTAMPTZ DEFAULT now(),
+        CONSTRAINT uq_user_match_score UNIQUE (user_id, match_id)
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS ix_user_match_scores_user_id ON user_match_scores(user_id)",
+    "CREATE INDEX IF NOT EXISTS ix_user_match_scores_match_id ON user_match_scores(match_id)",
 ]
 
 

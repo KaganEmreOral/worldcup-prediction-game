@@ -10,9 +10,10 @@ function RankChange({ change }: { change: number | null | undefined }) {
 }
 
 export default function LeaderboardPage() {
-  const { data, isLoading } = useQuery({ queryKey: ["leaderboard"], queryFn: leaderboard.list });
-  const { data: events } = useQuery({ queryKey: ["scoring-events"], queryFn: leaderboard.events });
-  const { data: daily } = useQuery({ queryKey: ["daily"], queryFn: leaderboard.daily });
+  const poll = { refetchInterval: 20_000 };
+  const { data, isLoading } = useQuery({ queryKey: ["leaderboard"], queryFn: leaderboard.list, ...poll });
+  const { data: events } = useQuery({ queryKey: ["scoring-events"], queryFn: leaderboard.events, ...poll });
+  const { data: daily } = useQuery({ queryKey: ["daily"], queryFn: leaderboard.daily, refetchInterval: 60_000 });
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6 sm:py-8">

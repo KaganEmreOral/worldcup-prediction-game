@@ -12,6 +12,7 @@ export default function AdminPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const [recalcMsg, setRecalcMsg] = useState("");
+  const [matchSaveMsg, setMatchSaveMsg] = useState("");
   const [importMsg, setImportMsg] = useState("");
   const [testingMsg, setTestingMsg] = useState("");
 
@@ -62,7 +63,20 @@ export default function AdminPage() {
 
   const updateMatch = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Record<string, unknown> }) => adminApi.updateMatch(id, data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-matches"] }),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["admin-matches"] });
+      qc.invalidateQueries({ queryKey: ["leaderboard"] });
+      qc.invalidateQueries({ queryKey: ["scoring-events"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      const s = data.scoring;
+      if (s?.scored) {
+        setMatchSaveMsg(`Scored ${s.users_scored ?? 0} users — leaderboard updated`);
+      } else if (s?.reason === "incomplete_scores") {
+        setMatchSaveMsg("Saved — enter both scores to trigger scoring");
+      } else {
+        setMatchSaveMsg("Match saved");
+      }
+    },
   });
 
   const recalculate = useMutation({
@@ -199,9 +213,10 @@ export default function AdminPage() {
         </div>
 
         <div className="card">
-          <h2 className="text-lg font-bold mb-4">Recalculation Engine</h2>
+          <h2 className="text-lg font-bold mb-4">Emergency Recalculation</h2>
           <p className="text-sm text-pitch-300 mb-4">
-            Re-runs full simulation pipeline: group standings, qualification, knockout scoring, leaderboard snapshots.
+            Saving match results above automatically scores all users and refreshes the leaderboard.
+            Use this only if scores look out of sync.
           </p>
           <button
             onClick={() => recalculate.mutate()}
@@ -216,6 +231,10 @@ export default function AdminPage() {
 
       <div className="card mb-8">
         <h2 className="text-lg font-bold mb-4">Match Results</h2>
+        <p className="text-sm text-pitch-300 mb-3">
+          Enter real scores and save — scoring runs automatically (no manual recalc needed).
+        </p>
+        {matchSaveMsg && <p className="text-green-400 text-sm mb-3">{matchSaveMsg}</p>}
         <div className="overflow-x-auto max-h-96 overflow-y-auto">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-pitch-800">

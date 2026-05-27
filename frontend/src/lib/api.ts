@@ -221,7 +221,11 @@ export const admin = {
   users: () => api<AdminUser[]>("/admin/users"),
   matches: () => api<Match[]>("/admin/matches"),
   updateMatch: (id: number, data: Record<string, unknown>) =>
-    api<{ message: string }>(`/admin/matches/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+    api<{
+      message: string;
+      id: number;
+      scoring?: { scored: boolean; users_scored?: number; match_id?: number; reason?: string };
+    }>(`/admin/matches/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
   settings: () =>
     api<{
       predictions_locked: boolean;

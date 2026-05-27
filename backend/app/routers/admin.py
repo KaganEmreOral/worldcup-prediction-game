@@ -10,6 +10,7 @@ from app.schemas import MatchCreate, MatchUpdate, TournamentImportRequest, Tourn
 from app.seeds.tournament_loader import TournamentImportError, get_active_tournament, import_tournament, load_seed_bundle, validate_seed_bundle
 from app.services.group_simulation import MatchResult, compute_group_standings, get_qualified_teams, rank_third_place_teams
 from app.services.knockout_generator import generate_r32_bracket
+from app.services.match_scoring import on_match_result_updated
 from app.services.recalculation import recalculate_all
 from app.services.tournament_config import get_knockout_rules
 
@@ -131,7 +132,16 @@ async def update_match(
         match.status = MatchStatus.FINISHED
 
     await db.flush()
-    return {"message": "Match updated", "id": match.id}
+
+    scoring_result = None
+    if match.real_score_a is not None and match.real_score_b is not None:
+        scoring_result = await on_match_result_updated(db, match, trigger="admin_save")
+
+    return {
+        "message": "Match updated",
+        "id": match.id,
+        "scoring": scoring_result,
+    }
 
 
 @router.get("/settings")
@@ -174,7 +184,12 @@ async def update_settings(
     if data.actual_top_assister is not None:
         settings.actual_top_assister = data.actual_top_assister
     await db.flush()
-    return {"message": "Settings updated"}
+
+    scoring_result = None
+    if settings.actual_top_scorer or settings.actual_top_assister:
+        scoring_result = await recalculate_all(db, trigger_source="admin_special_settings")
+
+    return {"message": "Settings updated", "scoring": scoring_result}
 
 
 @router.post("/recalculate")
@@ -279,8 +294,6 @@ async def list_tournaments(admin: User = Depends(require_admin), db: AsyncSessio
 from app.config import settings as app_settings
 import random
 
-from app.services.recalculation import recalculate_all
-
 
 def _require_testing():
     if not app_settings.enable_testing_tools:
@@ -306,8 +319,9 @@ async def fill_random_results(
         count += 1
     await db.flush()
     if count:
-        await recalculate_all(db)
-    return {"message": f"Filled {count} random results and recalculated"}
+        result = await recalculate_all(db, trigger_source="testing_fill_random")
+        return {"message": f"Filled {count} random results", "scoring": result}
+    return {"message": f"Filled {count} random results", "scoring": None}
 
 
 @router.post("/testing/simulate-matchday")
@@ -327,8 +341,8 @@ async def simulate_matchday(
         m.real_score_b = random.randint(0, 3)
         m.status = MatchStatus.FINISHED
     await db.flush()
-    await recalculate_all(db)
-    return {"message": f"Simulated {len(matches)} matches"}
+    result = await recalculate_all(db, trigger_source="testing_simulate_matchday")
+    return {"message": f"Simulated {len(matches)} matches", "scoring": result}
 
 
 @router.post("/testing/generate-demo-users")

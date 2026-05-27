@@ -1,5 +1,6 @@
 """Full recalculation pipeline for all users."""
 
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy import delete, select
@@ -18,6 +19,7 @@ from app.models import (
     Team,
     TournamentSettings,
     User,
+    UserMatchScore,
     UserScore,
 )
 from app.services.cache import invalidate
@@ -33,6 +35,8 @@ from app.services.scoring_engine import (
     simulate_user_groups,
     _enrich_detail,
 )
+
+logger = logging.getLogger(__name__)
 
 
 async def _load_teams_by_group(db: AsyncSession) -> dict[str, list[tuple[int, str, str]]]:
@@ -50,8 +54,19 @@ async def _load_teams_by_group(db: AsyncSession) -> dict[str, list[tuple[int, st
     return by_group
 
 
-async def recalculate_all(db: AsyncSession) -> dict:
+async def recalculate_all(
+    db: AsyncSession,
+    *,
+    trigger_match_id: int | None = None,
+    trigger_source: str = "manual",
+) -> dict:
     from app.seeds.tournament_loader import get_active_tournament
+
+    logger.info(
+        "recalculate.start trigger_match_id=%s source=%s",
+        trigger_match_id,
+        trigger_source,
+    )
 
     invalidate("dashboard")
     invalidate("standings")
@@ -84,10 +99,14 @@ async def recalculate_all(db: AsyncSession) -> dict:
 
     await db.execute(delete(GroupStandingsCache))
     await db.execute(delete(KnockoutBracketCache))
+    await db.execute(delete(UserMatchScore))
 
+    predictions_count = 0
     for user in users:
         pred_result = await db.execute(select(Prediction).where(Prediction.user_id == user.id))
         predictions = {p.match_id: (p.predicted_score_a, p.predicted_score_b) for p in pred_result.scalars()}
+        if predictions:
+            predictions_count += 1
 
         breakdown = ScoreBreakdown()
 
@@ -205,6 +224,10 @@ async def recalculate_all(db: AsyncSession) -> dict:
         }
         user_score.updated_at = datetime.now(timezone.utc)
 
+        from app.services.match_scoring import sync_user_match_scores
+
+        await sync_user_match_scores(db, user.id, breakdown.match_scores)
+
         leaderboard.append({
             "user_id": user.id,
             "name": user.name,
@@ -246,8 +269,20 @@ async def recalculate_all(db: AsyncSession) -> dict:
 
     recent_events.sort(key=lambda x: -x.get("points", 0))
     await db.flush()
+
+    logger.info(
+        "recalculate.done users=%s with_predictions=%s leaderboard_size=%s events=%s",
+        len(users),
+        predictions_count,
+        len(leaderboard),
+        len(recent_events),
+    )
+
     return {
         "users_scored": len(users),
+        "users_with_predictions": predictions_count,
         "leaderboard": leaderboard[:20],
         "recent_events": recent_events[:30],
+        "trigger_match_id": trigger_match_id,
+        "trigger_source": trigger_source,
     }
