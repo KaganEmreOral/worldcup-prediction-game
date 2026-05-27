@@ -23,7 +23,7 @@ The **Docker Nginx container** from `docker-compose.yml` is **not used** in prod
 
 ## 1. Prerequisites on VPS
 
-- DNS **A records** for `worldcupytu.org` and `www.worldcupytu.org` → VPS IP
+- DNS **A records** for `worldcupytu.org` and `www.worldcupytu.org` → VPS IP (not Namecheap URL Forward — see [NAMECHEAP-DNS.md](NAMECHEAP-DNS.md))
 
 ### Install Docker (if `docker: command not found`)
 
