@@ -1,0 +1,17 @@
+{
+  "slug": "worldcup_2026",
+  "name": "FIFA World Cup 2026",
+  "year": 2026,
+  "format_type": "world_cup_48",
+  "starts_at": "2026-06-11T19:00:00Z",
+  "ends_at": "2026-07-19T23:00:00Z",
+  "format_config": {
+    "teams_count": 48,
+    "groups_count": 12,
+    "teams_per_group": 4,
+    "group_matches_per_team": 3,
+    "best_third_count": 8,
+    "knockout_stages": ["R32", "R16", "QF", "SF", "F"],
+    "timezone_display": "UTC"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "teams": [
+    {"code": "MEX", "name": "Mexico", "group": "A", "position": 1, "flag_code": "mx", "confederation": "CONCACAF"},
+    {"code": "KOR", "name": "South Korea", "group": "A", "position": 2, "flag_code": "kr", "confederation": "AFC"},
+    {"code": "RSA", "name": "South Africa", "group": "A", "position": 3, "flag_code": "za", "confederation": "CAF"},
+    {"code": "CZE", "name": "Czechia", "group": "A", "position": 4, "flag_code": "cz", "confederation": "UEFA"},
+
+    {"code": "CAN", "name": "Canada", "group": "B", "position": 1, "flag_code": "ca", "confederation": "CONCACAF"},
+    {"code": "BIH", "name": "Bosnia and Herzegovina", "group": "B", "position": 2, "flag_code": "ba", "confederation": "UEFA"},
+    {"code": "QAT", "name": "Qatar", "group": "B", "position": 3, "flag_code": "qa", "confederation": "AFC"},
+    {"code": "SUI", "name": "Switzerland", "group": "B", "position": 4, "flag_code": "ch", "confederation": "UEFA"},
+
+    {"code": "BRA", "name": "Brazil", "group": "C", "position": 1, "flag_code": "br", "confederation": "CONMEBOL"},
+    {"code": "MAR", "name": "Morocco", "group": "C", "position": 2, "flag_code": "ma", "confederation": "CAF"},
+    {"code": "HAI", "name": "Haiti", "group": "C", "position": 3, "flag_code": "ht", "confederation": "CONCACAF"},
+    {"code": "SCO", "name": "Scotland", "group": "C", "position": 4, "flag_code": "gb-sct", "confederation": "UEFA"},
+
+    {"code": "USA", "name": "United States", "group": "D", "position": 1, "flag_code": "us", "confederation": "CONCACAF"},
+    {"code": "PAR", "name": "Paraguay", "group": "D", "position": 2, "flag_code": "py", "confederation": "CONMEBOL"},
+    {"code": "AUS", "name": "Australia", "group": "D", "position": 3, "flag_code": "au", "confederation": "AFC"},
+    {"code": "TUR", "name": "Türkiye", "group": "D", "position": 4, "flag_code": "tr", "confederation": "UEFA"},
+
+    {"code": "GER", "name": "Germany", "group": "E", "position": 1, "flag_code": "de", "confederation": "UEFA"},
+    {"code": "CUW", "name": "Curaçao", "group": "E", "position": 2, "flag_code": "cw", "confederation": "CONCACAF"},
+    {"code": "CIV", "name": "Côte d'Ivoire", "group": "E", "position": 3, "flag_code": "ci", "confederation": "CAF"},
+    {"code": "ECU", "name": "Ecuador", "group": "E", "position": 4, "flag_code": "ec", "confederation": "CONMEBOL"},
+
+    {"code": "NED", "name": "Netherlands", "group": "F", "position": 1, "flag_code": "nl", "confederation": "UEFA"},
+    {"code": "JPN", "name": "Japan", "group": "F", "position": 2, "flag_code": "jp", "confederation": "AFC"},
+    {"code": "SWE", "name": "Sweden", "group": "F", "position": 3, "flag_code": "se", "confederation": "UEFA"},
+    {"code": "TUN", "name": "Tunisia", "group": "F", "position": 4, "flag_code": "tn", "confederation": "CAF"},
+
+    {"code": "BEL", "name": "Belgium", "group": "G", "position": 1, "flag_code": "be", "confederation": "UEFA"},
+    {"code": "EGY", "name": "Egypt", "group": "G", "position": 2, "flag_code": "eg", "confederation": "CAF"},
+    {"code": "IRN", "name": "Iran", "group": "G", "position": 3, "flag_code": "ir", "confederation": "AFC"},
+    {"code": "NZL", "name": "New Zealand", "group": "G", "position": 4, "flag_code": "nz", "confederation": "OFC"},
+
+    {"code": "ESP", "name": "Spain", "group": "H", "position": 1, "flag_code": "es", "confederation": "UEFA"},
+    {"code": "CPV", "name": "Cape Verde", "group": "H", "position": 2, "flag_code": "cv", "confederation": "CAF"},
+    {"code": "KSA", "name": "Saudi Arabia", "group": "H", "position": 3, "flag_code": "sa", "confederation": "AFC"},
+    {"code": "URU", "name": "Uruguay", "group": "H", "position": 4, "flag_code": "uy", "confederation": "CONMEBOL"},
+
+    {"code": "FRA", "name": "France", "group": "I", "position": 1, "flag_code": "fr", "confederation": "UEFA"},
+    {"code": "SEN", "name": "Senegal", "group": "I", "position": 2, "flag_code": "sn", "confederation": "CAF"},
+    {"code": "IRQ", "name": "Iraq", "group": "I", "position": 3, "flag_code": "iq", "confederation": "AFC"},
+    {"code": "NOR", "name": "Norway", "group": "I", "position": 4, "flag_code": "no", "confederation": "UEFA"},
+
+    {"code": "ARG", "name": "Argentina", "group": "J", "position": 1, "flag_code": "ar", "confederation": "CONMEBOL"},
+    {"code": "ALG", "name": "Algeria", "group": "J", "position": 2, "flag_code": "dz", "confederation": "CAF"},
+    {"code": "AUT", "name": "Austria", "group": "J", "position": 3, "flag_code": "at", "confederation": "UEFA"},
+    {"code": "JOR", "name": "Jordan", "group": "J", "position": 4, "flag_code": "jo", "confederation": "AFC"},
+
+    {"code": "POR", "name": "Portugal", "group": "K", "position": 1, "flag_code": "pt", "confederation": "UEFA"},
+    {"code": "COD", "name": "DR Congo", "group": "K", "position": 2, "flag_code": "cd", "confederation": "CAF"},
+    {"code": "UZB", "name": "Uzbekistan", "group": "K", "position": 3, "flag_code": "uz", "confederation": "AFC"},
+    {"code": "COL", "name": "Colombia", "group": "K", "position": 4, "flag_code": "co", "confederation": "CONMEBOL"},
+
+    {"code": "ENG", "name": "England", "group": "L", "position": 1, "flag_code": "gb-eng", "confederation": "UEFA"},
+    {"code": "CRO", "name": "Croatia", "group": "L", "position": 2, "flag_code": "hr", "confederation": "UEFA"},
+    {"code": "GHA", "name": "Ghana", "group": "L", "position": 3, "flag_code": "gh", "confederation": "CAF"},
+    {"code": "PAN", "name": "Panama", "group": "L", "position": 4, "flag_code": "pa", "confederation": "CONCACAF"}
+  ]
+}

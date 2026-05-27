@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-pitch-900 text-white antialiased;
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-pitch-500 hover:bg-pitch-600 text-white;
+  }
+  .btn-secondary {
+    @apply btn bg-pitch-800 hover:bg-pitch-700 border border-pitch-600;
+  }
+  .card {
+    @apply bg-pitch-800/60 border border-pitch-700 rounded-xl p-6 backdrop-blur;
+  }
+  .card-compact {
+    @apply p-4 sm:p-5;
+  }
+  .input {
+    @apply w-full px-3 py-2 bg-pitch-900 border border-pitch-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-pitch-500 text-base;
+  }
+  .input-score {
+    @apply input w-12 sm:w-14 text-center p-1.5 sm:p-2 text-base min-h-[44px];
+  }
+  .standings-table th,
+  .standings-table td {
+    @apply whitespace-nowrap;
+  }
+  .knockout-row {
+    @apply flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 text-sm;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .card {
+    @apply p-4;
+  }
+}

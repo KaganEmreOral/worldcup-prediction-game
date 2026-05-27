@@ -1,0 +1,16 @@
+{
+  "groups": [
+    {"name": "A", "display_order": 1},
+    {"name": "B", "display_order": 2},
+    {"name": "C", "display_order": 3},
+    {"name": "D", "display_order": 4},
+    {"name": "E", "display_order": 5},
+    {"name": "F", "display_order": 6},
+    {"name": "G", "display_order": 7},
+    {"name": "H", "display_order": 8},
+    {"name": "I", "display_order": 9},
+    {"name": "J", "display_order": 10},
+    {"name": "K", "display_order": 11},
+    {"name": "L", "display_order": 12}
+  ]
+}

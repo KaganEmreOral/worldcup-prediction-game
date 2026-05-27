@@ -1,0 +1,56 @@
+{
+  "format": "world_cup_48",
+  "best_third_count": 8,
+  "third_place_scenarios_file": "third_place_scenarios.json",
+  "third_place_slot_matches": {
+    "74": {"slot": "3RD_E", "label": "Winner E vs 3rd"},
+    "77": {"slot": "3RD_I", "label": "Winner I vs 3rd"},
+    "79": {"slot": "3RD_A", "label": "Winner A vs 3rd"},
+    "80": {"slot": "3RD_L", "label": "Winner L vs 3rd"},
+    "81": {"slot": "3RD_D", "label": "Winner D vs 3rd"},
+    "82": {"slot": "3RD_G", "label": "Winner G vs 3rd"},
+    "85": {"slot": "3RD_B", "label": "Winner B vs 3rd"},
+    "87": {"slot": "3RD_K", "label": "Winner K vs 3rd"}
+  },
+  "r32_fixed": [
+    {"match_number": 73, "bracket_slot": "R32-1", "team_a": "A2", "team_b": "B2", "stadium_key": "inglewood", "kickoff_utc": "2026-06-28T19:00:00Z"},
+    {"match_number": 74, "bracket_slot": "R32-2", "team_a": "E1", "team_b": "3RD", "third_slot_match": 74, "stadium_key": "foxborough", "kickoff_utc": "2026-06-29T20:30:00Z"},
+    {"match_number": 75, "bracket_slot": "R32-3", "team_a": "F1", "team_b": "C2", "stadium_key": "guadalupe", "kickoff_utc": "2026-06-30T01:00:00Z"},
+    {"match_number": 76, "bracket_slot": "R32-4", "team_a": "C1", "team_b": "F2", "stadium_key": "houston", "kickoff_utc": "2026-06-29T17:00:00Z"},
+    {"match_number": 77, "bracket_slot": "R32-5", "team_a": "I1", "team_b": "3RD", "third_slot_match": 77, "stadium_key": "east_rutherford", "kickoff_utc": "2026-06-30T21:00:00Z"},
+    {"match_number": 78, "bracket_slot": "R32-6", "team_a": "E2", "team_b": "I2", "stadium_key": "arlington", "kickoff_utc": "2026-06-30T17:00:00Z"},
+    {"match_number": 79, "bracket_slot": "R32-7", "team_a": "A1", "team_b": "3RD", "third_slot_match": 79, "stadium_key": "mexico_city", "kickoff_utc": "2026-07-01T01:00:00Z"},
+    {"match_number": 80, "bracket_slot": "R32-8", "team_a": "L1", "team_b": "3RD", "third_slot_match": 80, "stadium_key": "atlanta", "kickoff_utc": "2026-07-01T16:00:00Z"},
+    {"match_number": 81, "bracket_slot": "R32-9", "team_a": "D1", "team_b": "3RD", "third_slot_match": 81, "stadium_key": "santa_clara", "kickoff_utc": "2026-07-02T00:00:00Z"},
+    {"match_number": 82, "bracket_slot": "R32-10", "team_a": "G1", "team_b": "3RD", "third_slot_match": 82, "stadium_key": "seattle", "kickoff_utc": "2026-07-01T20:00:00Z"},
+    {"match_number": 83, "bracket_slot": "R32-11", "team_a": "K2", "team_b": "L2", "stadium_key": "toronto", "kickoff_utc": "2026-07-02T23:00:00Z"},
+    {"match_number": 84, "bracket_slot": "R32-12", "team_a": "H1", "team_b": "J2", "stadium_key": "inglewood", "kickoff_utc": "2026-07-02T19:00:00Z"},
+    {"match_number": 85, "bracket_slot": "R32-13", "team_a": "B1", "team_b": "3RD", "third_slot_match": 85, "stadium_key": "vancouver", "kickoff_utc": "2026-07-03T03:00:00Z"},
+    {"match_number": 86, "bracket_slot": "R32-14", "team_a": "J1", "team_b": "H2", "stadium_key": "miami_gardens", "kickoff_utc": "2026-07-03T22:00:00Z"},
+    {"match_number": 87, "bracket_slot": "R32-15", "team_a": "K1", "team_b": "3RD", "third_slot_match": 87, "stadium_key": "kansas_city", "kickoff_utc": "2026-07-04T01:30:00Z"},
+    {"match_number": 88, "bracket_slot": "R32-16", "team_a": "D2", "team_b": "G2", "stadium_key": "arlington", "kickoff_utc": "2026-07-03T18:00:00Z"}
+  ],
+  "r16_feeders": [
+    {"match_number": 89, "bracket_slot": "R16-1", "feeder_a": 74, "feeder_b": 77, "stadium_key": "philadelphia", "kickoff_utc": "2026-07-04T17:00:00Z"},
+    {"match_number": 90, "bracket_slot": "R16-2", "feeder_a": 73, "feeder_b": 75, "stadium_key": "houston", "kickoff_utc": "2026-07-04T17:00:00Z"},
+    {"match_number": 91, "bracket_slot": "R16-3", "feeder_a": 76, "feeder_b": 78, "stadium_key": "east_rutherford", "kickoff_utc": "2026-07-05T20:00:00Z"},
+    {"match_number": 92, "bracket_slot": "R16-4", "feeder_a": 79, "feeder_b": 80, "stadium_key": "mexico_city", "kickoff_utc": "2026-07-06T00:00:00Z"},
+    {"match_number": 93, "bracket_slot": "R16-5", "feeder_a": 83, "feeder_b": 84, "stadium_key": "arlington", "kickoff_utc": "2026-07-06T19:00:00Z"},
+    {"match_number": 94, "bracket_slot": "R16-6", "feeder_a": 81, "feeder_b": 82, "stadium_key": "seattle", "kickoff_utc": "2026-07-07T00:00:00Z"},
+    {"match_number": 95, "bracket_slot": "R16-7", "feeder_a": 86, "feeder_b": 88, "stadium_key": "atlanta", "kickoff_utc": "2026-07-07T16:00:00Z"},
+    {"match_number": 96, "bracket_slot": "R16-8", "feeder_a": 85, "feeder_b": 87, "stadium_key": "vancouver", "kickoff_utc": "2026-07-07T20:00:00Z"}
+  ],
+  "qf_feeders": [
+    {"match_number": 97, "bracket_slot": "QF-1", "feeder_a": 89, "feeder_b": 90, "stadium_key": "foxborough", "kickoff_utc": "2026-07-09T20:00:00Z"},
+    {"match_number": 98, "bracket_slot": "QF-2", "feeder_a": 93, "feeder_b": 94, "stadium_key": "inglewood", "kickoff_utc": "2026-07-10T19:00:00Z"},
+    {"match_number": 99, "bracket_slot": "QF-3", "feeder_a": 91, "feeder_b": 92, "stadium_key": "miami_gardens", "kickoff_utc": "2026-07-11T21:00:00Z"},
+    {"match_number": 100, "bracket_slot": "QF-4", "feeder_a": 95, "feeder_b": 96, "stadium_key": "kansas_city", "kickoff_utc": "2026-07-12T01:00:00Z"}
+  ],
+  "sf_feeders": [
+    {"match_number": 101, "bracket_slot": "SF-1", "feeder_a": 97, "feeder_b": 98, "stadium_key": "arlington", "kickoff_utc": "2026-07-14T19:00:00Z"},
+    {"match_number": 102, "bracket_slot": "SF-2", "feeder_a": 99, "feeder_b": 100, "stadium_key": "atlanta", "kickoff_utc": "2026-07-15T19:00:00Z"}
+  ],
+  "final_feeders": [
+    {"match_number": 104, "bracket_slot": "F-1", "feeder_a": 101, "feeder_b": 102, "stadium_key": "east_rutherford", "kickoff_utc": "2026-07-19T19:00:00Z"}
+  ]
+}

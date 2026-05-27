@@ -1,0 +1,25 @@
+{
+  "stadiums": [
+    {"key": "mexico_city", "name": "Estadio Azteca", "city": "Mexico City", "country": "Mexico", "timezone": "America/Mexico_City"},
+    {"key": "guadalajara", "name": "Estadio Akron", "city": "Guadalajara", "country": "Mexico", "timezone": "America/Mexico_City"},
+    {"key": "monterrey", "name": "Estadio BBVA", "city": "Monterrey", "country": "Mexico", "timezone": "America/Mexico_City"},
+    {"key": "guadalupe", "name": "Estadio BBVA", "city": "Guadalupe", "country": "Mexico", "timezone": "America/Mexico_City"},
+    {"key": "toronto", "name": "BMO Field", "city": "Toronto", "country": "Canada", "timezone": "America/Toronto"},
+    {"key": "vancouver", "name": "BC Place", "city": "Vancouver", "country": "Canada", "timezone": "America/Vancouver"},
+    {"key": "inglewood", "name": "SoFi Stadium", "city": "Inglewood", "country": "United States", "timezone": "America/Los_Angeles"},
+    {"key": "santa_clara", "name": "Levi's Stadium", "city": "Santa Clara", "country": "United States", "timezone": "America/Los_Angeles"},
+    {"key": "san_francisco", "name": "Levi's Stadium", "city": "Santa Clara", "country": "United States", "timezone": "America/Los_Angeles"},
+    {"key": "seattle", "name": "Lumen Field", "city": "Seattle", "country": "United States", "timezone": "America/Los_Angeles"},
+    {"key": "east_rutherford", "name": "MetLife Stadium", "city": "East Rutherford", "country": "United States", "timezone": "America/New_York"},
+    {"key": "foxborough", "name": "Gillette Stadium", "city": "Foxborough", "country": "United States", "timezone": "America/New_York"},
+    {"key": "boston", "name": "Gillette Stadium", "city": "Foxborough", "country": "United States", "timezone": "America/New_York"},
+    {"key": "philadelphia", "name": "Lincoln Financial Field", "city": "Philadelphia", "country": "United States", "timezone": "America/New_York"},
+    {"key": "miami", "name": "Hard Rock Stadium", "city": "Miami Gardens", "country": "United States", "timezone": "America/New_York"},
+    {"key": "miami_gardens", "name": "Hard Rock Stadium", "city": "Miami Gardens", "country": "United States", "timezone": "America/New_York"},
+    {"key": "atlanta", "name": "Mercedes-Benz Stadium", "city": "Atlanta", "country": "United States", "timezone": "America/New_York"},
+    {"key": "houston", "name": "NRG Stadium", "city": "Houston", "country": "United States", "timezone": "America/Chicago"},
+    {"key": "arlington", "name": "AT&T Stadium", "city": "Arlington", "country": "United States", "timezone": "America/Chicago"},
+    {"key": "dallas", "name": "AT&T Stadium", "city": "Arlington", "country": "United States", "timezone": "America/Chicago"},
+    {"key": "kansas_city", "name": "Arrowhead Stadium", "city": "Kansas City", "country": "United States", "timezone": "America/Chicago"}
+  ]
+}
