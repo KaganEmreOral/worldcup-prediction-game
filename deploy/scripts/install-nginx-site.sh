@@ -28,6 +28,12 @@ apply_ports_to_nginx_config \
 ln -sf "/etc/nginx/sites-available/${DOMAIN}" "/etc/nginx/sites-enabled/${DOMAIN}"
 
 echo "==> Testing Nginx configuration"
+if grep -qE '127\.0\.0\.1:(3000|8000)\b' "/etc/nginx/sites-available/${DOMAIN}"; then
+  echo "ERROR: ${DOMAIN} config still points at 3000/8000 (would show another site on this VPS)."
+  echo "  Check .env.production: FRONTEND_HOST_PORT=3010 BACKEND_HOST_PORT=8010"
+  exit 1
+fi
+
 nginx -t
 
 echo "==> Reloading Nginx (existing sites unchanged)"
