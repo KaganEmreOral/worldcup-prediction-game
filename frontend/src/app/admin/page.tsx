@@ -248,7 +248,7 @@ export default function AdminPage() {
             </tr>
           </thead>
           <tbody>
-            {users?.map((u: { id: number; name: string; username: string; prediction_count: number }) => (
+            {users?.map((u) => (
               <tr key={u.id} className="border-b border-pitch-700/50">
                 <td className="py-2">{u.name}</td>
                 <td className="py-2 text-pitch-300">@{u.username}</td>

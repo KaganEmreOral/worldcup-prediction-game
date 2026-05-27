@@ -24,7 +24,14 @@ The **Docker Nginx container** from `docker-compose.yml` is **not used** in prod
 ## 1. Prerequisites on VPS
 
 - DNS **A records** for `worldcupytu.org` and `www.worldcupytu.org` → VPS IP
-- Docker + Docker Compose plugin installed
+
+### Install Docker (if `docker: command not found`)
+
+```bash
+sudo bash deploy/scripts/install-docker.sh
+docker --version
+docker compose version
+```
 - Host **Nginx** already serving your other website
 - Ports **80** and **443** open in firewall (see below)
 

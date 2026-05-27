@@ -13,6 +13,16 @@ if [[ ! -f .env.production ]]; then
   exit 1
 fi
 
+if ! command -v docker >/dev/null 2>&1; then
+  echo "ERROR: docker is not installed on this server."
+  echo ""
+  echo "Install Docker, then re-run this script:"
+  echo "  sudo bash deploy/scripts/install-docker.sh"
+  echo ""
+  echo "Or manually: https://docs.docker.com/engine/install/ubuntu/"
+  exit 1
+fi
+
 # Stop dev stack nginx if it was binding port 80 (does not affect host nginx)
 if docker compose ps nginx 2>/dev/null | grep -q Up; then
   echo "==> Stopping dev docker-compose nginx (port 80 conflict)"

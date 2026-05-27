@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Install Docker Engine + Compose plugin on Ubuntu/Debian VPS.
+# Run: sudo bash deploy/scripts/install-docker.sh
+set -euo pipefail
+
+if command -v docker >/dev/null 2>&1; then
+  echo "Docker already installed: $(docker --version)"
+  docker compose version
+  exit 0
+fi
+
+echo "==> Installing Docker (official repository)"
+apt-get update
+apt-get install -y ca-certificates curl
+
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+
+. /etc/os-release
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  ${VERSION_CODENAME} stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+apt-get update
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+systemctl enable docker
+systemctl start docker
+
+echo ""
+echo "OK: $(docker --version)"
+docker compose version
+echo ""
+echo "Next (from repo root):"
+echo "  bash deploy/scripts/deploy-app.sh"

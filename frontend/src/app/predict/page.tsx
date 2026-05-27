@@ -78,11 +78,11 @@ export default function PredictPage() {
     });
   }
 
-  function setKoScore(label: string, side: "a" | "b", val: number, teamAId?: number, teamBId?: number) {
+  function setKoScore(label: string, side: "a" | "b", val: number) {
     setKoScores((prev) => {
       const cur = prev[label] || [0, 0];
-      const next = { ...prev, [label]: side === "a" ? [val, cur[1]] : [cur[0], val] as [number, number] };
-      return next;
+      const score: [number, number] = side === "a" ? [val, cur[1]] : [cur[0], val];
+      return { ...prev, [label]: score };
     });
   }
 

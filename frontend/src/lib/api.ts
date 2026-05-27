@@ -208,12 +208,28 @@ export const simulation = {
     }>("/simulation/my-bracket"),
 };
 
+export interface AdminUser {
+  id: number;
+  name: string;
+  username: string;
+  prediction_count: number;
+  is_admin?: boolean;
+  created_at?: string;
+}
+
 export const admin = {
-  users: () => api<unknown[]>("/admin/users"),
+  users: () => api<AdminUser[]>("/admin/users"),
   matches: () => api<Match[]>("/admin/matches"),
   updateMatch: (id: number, data: Record<string, unknown>) =>
     api<{ message: string }>(`/admin/matches/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
-  settings: () => api<{ predictions_locked: boolean; tournament_started: boolean; tournament?: { slug: string; name: string } }>("/admin/settings"),
+  settings: () =>
+    api<{
+      predictions_locked: boolean;
+      tournament_started: boolean;
+      actual_top_scorer?: string | null;
+      actual_top_assister?: string | null;
+      tournament?: { slug: string; name: string };
+    }>("/admin/settings"),
   updateSettings: (data: Record<string, unknown>) =>
     api<{ message: string }>("/admin/settings", { method: "PATCH", body: JSON.stringify(data) }),
   recalculate: () => api<{ users_scored: number; leaderboard: unknown[] }>("/admin/recalculate", { method: "POST" }),
