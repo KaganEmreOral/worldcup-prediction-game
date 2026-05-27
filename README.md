@@ -10,6 +10,15 @@ Production-ready prediction platform powered by **official FIFA World Cup 2026**
 - **Configurable tournaments** — JSON seed system supports future World Cup, Euro, Copa América formats
 - **Admin import system** — Transactional reseed, validation, bracket preview
 
+## Repository
+
+GitHub: [github.com/KaganEmreOral/worldcup-prediction-game](https://github.com/KaganEmreOral/worldcup-prediction-game)
+
+```bash
+git clone https://github.com/KaganEmreOral/worldcup-prediction-game.git
+cd worldcup-prediction-game
+```
+
 ## Quick Start
 
 ```bash
