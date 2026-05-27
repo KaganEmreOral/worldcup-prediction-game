@@ -268,10 +268,27 @@ export default function AdminPage() {
       </div>
 
       <div className="card mb-8">
-        <h2 className="text-lg font-bold mb-4">Match Results</h2>
-        <p className="text-sm text-pitch-300 mb-3">
-          Enter real scores and save — scoring runs automatically (no manual recalc needed).
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+          <div>
+            <h2 className="text-lg font-bold">Match Results</h2>
+            <p className="text-sm text-pitch-300 mt-1">
+              Enter real scores and save — scoring runs automatically (no manual recalc needed).
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm("Clear ALL match results and reset scores? This cannot be undone.")) {
+                resetMatchResults.mutate();
+              }
+            }}
+            disabled={resetMatchResults.isPending}
+            className="btn-secondary text-red-300 border-red-500/40 shrink-0"
+          >
+            {resetMatchResults.isPending ? "Resetting…" : "Reset All Match Results"}
+          </button>
+        </div>
+        {resetMsg && <p className="text-green-400 text-sm mb-3">{resetMsg}</p>}
         {matchSaveMsg && <p className="text-green-400 text-sm mb-3">{matchSaveMsg}</p>}
         <div className="overflow-x-auto max-h-96 overflow-y-auto">
           <table className="w-full text-sm">
