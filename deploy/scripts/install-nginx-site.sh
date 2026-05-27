@@ -13,8 +13,9 @@ load_host_ports "${REPO_ROOT}/.env.production"
 echo "==> Installing Nginx snippets and rate limits (domain: ${DOMAIN})"
 echo "    Upstream frontend: 127.0.0.1:${FRONTEND_HOST_PORT}"
 echo "    Upstream backend:  127.0.0.1:${BACKEND_HOST_PORT}"
-mkdir -p /var/www/certbot
-chmod 755 /var/www/certbot
+# shellcheck source=lib/acme-webroot.sh
+source "${REPO_ROOT}/deploy/scripts/lib/acme-webroot.sh"
+acme_ensure_dir
 
 cp "${REPO_ROOT}/deploy/nginx/snippets/worldcup-proxy.conf" /etc/nginx/snippets/worldcup-proxy.conf
 cp "${REPO_ROOT}/deploy/nginx/snippets/worldcup-proxy-ws.conf" /etc/nginx/snippets/worldcup-proxy-ws.conf

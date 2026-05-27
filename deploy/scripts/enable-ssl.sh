@@ -17,8 +17,9 @@ if ! command -v certbot >/dev/null 2>&1; then
   apt-get install -y certbot
 fi
 
-mkdir -p /var/www/certbot
-chmod 755 /var/www/certbot
+# shellcheck source=lib/acme-webroot.sh
+source "${REPO_ROOT}/deploy/scripts/lib/acme-webroot.sh"
+acme_ensure_dir
 
 echo "==> Verifying Nginx config before certificate request"
 if ! nginx -t; then
@@ -29,14 +30,12 @@ fi
 systemctl reload nginx
 
 echo "==> Testing ACME webroot (port 80)"
-TEST_FILE="ping-$(date +%s)"
-echo ok >"/var/www/certbot/${TEST_FILE}"
-if ! curl -sf "http://${DOMAIN}/.well-known/acme-challenge/${TEST_FILE}" | grep -q ok; then
-  echo "WARNING: http://${DOMAIN}/.well-known/acme-challenge/ not reachable."
-  echo "  Certbot may fail if another vhost catches this domain on port 80/443."
-  echo "  Check: curl -v http://${DOMAIN}/.well-known/acme-challenge/${TEST_FILE}"
+acme_test_local "${DOMAIN}" || true
+if ! acme_test_public "${DOMAIN}"; then
+  echo "ERROR: ACME path not reachable publicly. Fix DNS (no Namecheap redirect) before certbot."
+  echo "  See deploy/NAMECHEAP-DNS.md"
+  exit 1
 fi
-rm -f "/var/www/certbot/${TEST_FILE}"
 
 echo "==> Requesting certificate for ${DOMAIN} and www.${DOMAIN}"
 certbot certonly --webroot \

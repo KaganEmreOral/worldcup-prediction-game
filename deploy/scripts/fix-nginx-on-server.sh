@@ -12,8 +12,9 @@ load_host_ports "${REPO_ROOT}/.env.production"
 
 echo "==> Nginx upstream ports: frontend=${FRONTEND_HOST_PORT} backend=${BACKEND_HOST_PORT}"
 
-mkdir -p /var/www/certbot
-chmod 755 /var/www/certbot
+# shellcheck source=lib/acme-webroot.sh
+source "${REPO_ROOT}/deploy/scripts/lib/acme-webroot.sh"
+acme_ensure_dir
 
 cp "${REPO_ROOT}/deploy/nginx/snippets/worldcup-proxy.conf" /etc/nginx/snippets/worldcup-proxy.conf
 cp "${REPO_ROOT}/deploy/nginx/snippets/worldcup-proxy-ws.conf" /etc/nginx/snippets/worldcup-proxy-ws.conf

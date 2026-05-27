@@ -30,11 +30,11 @@ echo "==> 4. Local checks"
 curl -sf "http://127.0.0.1:${FRONTEND_HOST_PORT}/" >/dev/null && echo "OK frontend local" || echo "FAIL frontend"
 curl -sf "http://127.0.0.1:${BACKEND_HOST_PORT:-8010}/api/health" && echo "OK backend local"
 
-echo "==> 5. ACME webroot (via Host header)"
-PROBE="probe-$$"
-echo ok | sudo tee "/var/www/certbot/${PROBE}" >/dev/null
-curl -sf -H "Host: worldcupytu.org" "http://127.0.0.1/.well-known/acme-challenge/${PROBE}" && echo "OK ACME local" || echo "FAIL ACME local — fix nginx first"
-sudo rm -f "/var/www/certbot/${PROBE}"
+echo "==> 5. ACME webroot"
+# shellcheck source=lib/acme-webroot.sh
+source "${REPO_ROOT}/deploy/scripts/lib/acme-webroot.sh"
+acme_test_local worldcupytu.org || true
+acme_test_public worldcupytu.org || true
 
 echo ""
 echo "==> 6. Public DNS must point to THIS server (not Namecheap forward)"
