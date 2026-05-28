@@ -59,8 +59,9 @@ export default function PredictPage() {
     return labels;
   }, [previewBracket]);
 
-  const knockoutFilled = expectedKoLabels.size > 0 && [...expectedKoLabels].every((l) => koScores[l] !== undefined);
-  const knockoutNoDraws = [...expectedKoLabels].every((l) => {
+  const koLabels = Array.from(expectedKoLabels);
+  const knockoutFilled = koLabels.length > 0 && koLabels.every((l) => koScores[l] !== undefined);
+  const knockoutNoDraws = koLabels.every((l) => {
     const s = koScores[l];
     return s && s[0] !== s[1];
   });
