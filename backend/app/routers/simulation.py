@@ -5,12 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.deps import get_current_user
 from app.database import get_db
-from app.models import KnockoutPrediction, Match, MatchStage, Prediction, Team, User
-from app.services.group_simulation import MatchResult, compute_group_standings, rank_third_place_teams
-from app.services.knockout_generator import build_knockout_tree, generate_r32_bracket
-from app.services.scoring_engine import simulate_user_groups
+from app.models import GroupStandingsCache, KnockoutPrediction, Prediction, User
+from app.services.user_tournament_simulation import (
+    build_user_tournament_tree,
+    load_user_bracket_tree,
+)
 from app.services.tournament_config import get_knockout_rules
 from app.seeds.tournament_loader import get_active_tournament
+from app.services.prediction_validation import load_group_matches, load_teams_by_group
 
 router = APIRouter(prefix="/api/simulation", tags=["simulation"])
 
@@ -23,19 +25,16 @@ class GroupPredictionPreview(BaseModel):
 
 class BracketPreviewRequest(BaseModel):
     predictions: list[GroupPredictionPreview]
+    knockout_predictions: list[dict] | None = None
 
 
-async def _teams_by_group(db: AsyncSession) -> dict[str, list]:
-    tournament = await get_active_tournament(db)
-    q = select(Team).order_by(Team.group_name, Team.name)
-    if tournament:
-        q = q.where(Team.tournament_id == tournament.id)
-    teams = (await db.execute(q)).scalars().all()
-    by_group: dict[str, list] = {}
-    for t in teams:
-        if t.group_name:
-            by_group.setdefault(t.group_name, []).append((t.id, t.name, t.code))
-    return by_group
+def _attach_predictions(tree: dict, ko_preds: dict[str, tuple[int, int]]) -> None:
+    for stage_matches in tree.values():
+        for m in stage_matches:
+            slot = m["label"]
+            if slot in ko_preds:
+                sa, sb = ko_preds[slot]
+                m["prediction"] = {"score_a": sa, "score_b": sb}
 
 
 @router.post("/preview-bracket")
@@ -44,31 +43,31 @@ async def preview_bracket_from_predictions(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Preview knockout bracket from in-progress group predictions (before submit)."""
-    teams_by_group = await _teams_by_group(db)
-    tournament = await get_active_tournament(db)
-    q = select(Match).where(Match.stage == MatchStage.GROUP)
-    if tournament:
-        q = q.where(Match.tournament_id == tournament.id)
-    group_matches = (await db.execute(q)).scalars().all()
+    """Preview full per-user knockout bracket from group (and optional KO) predictions."""
+    teams_by_group = await load_teams_by_group(db)
+    group_matches = await load_group_matches(db)
     predictions = {p.match_id: (p.predicted_score_a, p.predicted_score_b) for p in data.predictions}
     if not predictions:
         return {"r32": [], "bracket": {}}
+
+    ko_preds: dict[str, tuple[int, int]] = {}
+    if data.knockout_predictions:
+        for kp in data.knockout_predictions:
+            slot = kp.get("bracket_slot")
+            if slot:
+                ko_preds[slot] = (kp.get("predicted_score_a", 0), kp.get("predicted_score_b", 0))
+
     rules = await get_knockout_rules(db)
-    user_qualifiers = simulate_user_groups(teams_by_group, predictions, group_matches)
-    all_standings = {}
-    for group_name, team_list in teams_by_group.items():
-        results = []
-        for m in group_matches:
-            if m.group_name == group_name and m.id in predictions:
-                sa, sb = predictions[m.id]
-                results.append(MatchResult(m.team_a_id, m.team_b_id, sa, sb))
-        if results:
-            all_standings[group_name] = compute_group_standings(team_list, results)
-    third_ranked = rank_third_place_teams(all_standings)
-    r32 = generate_r32_bracket(user_qualifiers, third_ranked, rules)
-    tree = build_knockout_tree(r32, rules)
-    return {"qualifiers": user_qualifiers, "r32": tree.get("R32", []), "bracket": tree}
+    qualifiers, tree, _ = build_user_tournament_tree(
+        teams_by_group,
+        group_matches,
+        predictions,
+        ko_preds,
+        rules,
+        allow_placeholder_winners=True,
+    )
+    _attach_predictions(tree, ko_preds)
+    return {"qualifiers": qualifiers, "r32": tree.get("R32", []), "bracket": tree}
 
 
 @router.get("/my-bracket")
@@ -76,14 +75,28 @@ async def get_my_bracket(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return user's simulated knockout bracket based on their predictions."""
-    teams_by_group = await _teams_by_group(db)
-    tournament = await get_active_tournament(db)
+    """Return user's simulated knockout bracket (cached after submit, or rebuilt live)."""
+    cached = await load_user_bracket_tree(db, user.id)
+    if cached:
+        standings_result = await db.execute(
+            select(GroupStandingsCache).where(GroupStandingsCache.user_id == user.id)
+        )
+        qualifiers: dict[str, list] = {}
+        for row in standings_result.scalars():
+            qualifiers[row.group_name] = row.qualified_teams or []
 
-    q = select(Match).where(Match.stage == MatchStage.GROUP)
-    if tournament:
-        q = q.where(Match.tournament_id == tournament.id)
-    group_matches = (await db.execute(q)).scalars().all()
+        ko_result = await db.execute(
+            select(KnockoutPrediction).where(KnockoutPrediction.user_id == user.id)
+        )
+        ko_preds = {
+            kp.bracket_slot: (kp.predicted_score_a, kp.predicted_score_b)
+            for kp in ko_result.scalars()
+        }
+        _attach_predictions(cached, ko_preds)
+        return {"qualifiers": qualifiers, "r32": cached.get("R32", []), "bracket": cached, "cached": True}
+
+    teams_by_group = await load_teams_by_group(db)
+    group_matches = await load_group_matches(db)
 
     pred_result = await db.execute(select(Prediction).where(Prediction.user_id == user.id))
     predictions = {p.match_id: (p.predicted_score_a, p.predicted_score_b) for p in pred_result.scalars()}
@@ -91,37 +104,17 @@ async def get_my_bracket(
     if not predictions:
         return {"message": "No predictions yet", "qualifiers": {}, "bracket": {}}
 
-    rules = await get_knockout_rules(db)
-    user_qualifiers = simulate_user_groups(teams_by_group, predictions, group_matches)
-
-    all_standings = {}
-    for group_name, team_list in teams_by_group.items():
-        results = []
-        for m in group_matches:
-            if m.group_name == group_name and m.id in predictions:
-                sa, sb = predictions[m.id]
-                results.append(MatchResult(m.team_a_id, m.team_b_id, sa, sb))
-        if results:
-            all_standings[group_name] = compute_group_standings(team_list, results)
-
-    third_ranked = rank_third_place_teams(all_standings)
-    r32 = generate_r32_bracket(user_qualifiers, third_ranked, rules)
-
     ko_result = await db.execute(select(KnockoutPrediction).where(KnockoutPrediction.user_id == user.id))
     ko_preds = {kp.bracket_slot: (kp.predicted_score_a, kp.predicted_score_b) for kp in ko_result.scalars()}
 
-    r16_preds = {k: v for k, v in ko_preds.items() if k.startswith("R16")}
-    qf_preds = {k: v for k, v in ko_preds.items() if k.startswith("QF")}
-    sf_preds = {k: v for k, v in ko_preds.items() if k.startswith("SF")}
-    final_preds = {k: v for k, v in ko_preds.items() if k.startswith("F")}
-
-    tree = build_knockout_tree(r32, rules, r16_preds, qf_preds, sf_preds, final_preds)
-
-    for stage_matches in tree.values():
-        for m in stage_matches:
-            slot = m["label"]
-            if slot in ko_preds:
-                sa, sb = ko_preds[slot]
-                m["prediction"] = {"score_a": sa, "score_b": sb}
-
-    return {"qualifiers": user_qualifiers, "r32": tree.get("R32", []), "bracket": tree}
+    rules = await get_knockout_rules(db)
+    qualifiers, tree, _ = build_user_tournament_tree(
+        teams_by_group,
+        group_matches,
+        predictions,
+        ko_preds,
+        rules,
+        allow_placeholder_winners=not ko_preds,
+    )
+    _attach_predictions(tree, ko_preds)
+    return {"qualifiers": qualifiers, "r32": tree.get("R32", []), "bracket": tree, "cached": False}

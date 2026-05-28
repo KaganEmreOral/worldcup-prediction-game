@@ -162,6 +162,49 @@ def advance_knockout_round(
     return winners
 
 
+def _winners_by_match_number(
+    matches: list[BracketMatch],
+    preds: dict[str, tuple[int, int]],
+    *,
+    allow_placeholder_winners: bool = False,
+) -> dict[int, BracketTeam]:
+    """Map feeder match_number -> winner after applying scores (or placeholder)."""
+    winners: dict[int, BracketTeam] = {}
+    for m in matches:
+        if not m.team_a or not m.team_b:
+            continue
+        if m.label in preds:
+            sa, sb = preds[m.label]
+            m.score_a, m.score_b = sa, sb
+            if sa == sb:
+                raise ValueError(f"Knockout match {m.label} cannot end in a draw")
+            m.winner = m.team_a if sa > sb else m.team_b
+        elif allow_placeholder_winners:
+            m.score_a, m.score_b = 1, 0
+            m.winner = m.team_a
+        else:
+            continue
+        if m.match_number and m.winner:
+            winners[m.match_number] = m.winner
+    return winners
+
+
+def _feeders_to_matches(feeders: list, winners_by_num: dict[int, BracketTeam]) -> list[BracketMatch]:
+    result = []
+    for f in feeders:
+        ta = winners_by_num.get(f["feeder_a"])
+        tb = winners_by_num.get(f["feeder_b"])
+        result.append(
+            BracketMatch(
+                label=f["bracket_slot"],
+                match_number=f["match_number"],
+                team_a=BracketTeam(ta.team_id, ta.team_name, ta.team_code, ta.source) if ta else None,
+                team_b=BracketTeam(tb.team_id, tb.team_name, tb.team_code, tb.source) if tb else None,
+            )
+        )
+    return result
+
+
 def build_knockout_tree(
     r32: list[BracketMatch],
     rules: dict,
@@ -170,6 +213,8 @@ def build_knockout_tree(
     qf_preds: dict[str, tuple[int, int]] | None = None,
     sf_preds: dict[str, tuple[int, int]] | None = None,
     final_pred: dict[str, tuple[int, int]] | None = None,
+    *,
+    allow_placeholder_winners: bool = False,
 ) -> dict:
     r32_preds = r32_preds or {}
     r16_preds = r16_preds or {}
@@ -177,54 +222,18 @@ def build_knockout_tree(
     sf_preds = sf_preds or {}
     final_pred = final_pred or {}
 
-    def _apply_preds(matches: list[BracketMatch], preds: dict[str, tuple[int, int]]) -> list[BracketTeam]:
-        winners = []
-        for m in matches:
-            if m.label in preds and m.team_a and m.team_b:
-                sa, sb = preds[m.label]
-                m.score_a, m.score_b = sa, sb
-                m.winner = m.team_a if sa >= sb else m.team_b
-            elif m.team_a:
-                m.winner = m.team_a
-            if m.winner:
-                winners.append(m.winner)
-        return winners
-
-    def _feeders_to_matches(feeders: list, winners_by_num: dict[int, BracketTeam]) -> list[BracketMatch]:
-        result = []
-        for f in feeders:
-            ta = winners_by_num.get(f["feeder_a"])
-            tb = winners_by_num.get(f["feeder_b"])
-            result.append(
-                BracketMatch(
-                    label=f["bracket_slot"],
-                    match_number=f["match_number"],
-                    team_a=BracketTeam(ta.team_id, ta.team_name, ta.team_code, ta.source) if ta else None,
-                    team_b=BracketTeam(tb.team_id, tb.team_name, tb.team_code, tb.source) if tb else None,
-                )
-            )
-        return result
-
-    r32_winners_list = _apply_preds(r32, r32_preds)
-    winners_by_num: dict[int, BracketTeam] = {}
-    for m, w in zip(r32, r32_winners_list):
-        if m.match_number:
-            winners_by_num[m.match_number] = w
-
+    winners_by_num = _winners_by_match_number(r32, r32_preds, allow_placeholder_winners=allow_placeholder_winners)
     r16 = _feeders_to_matches(rules.get("r16_feeders", []), winners_by_num)
-    r16_winners_list = _apply_preds(r16, r16_preds)
-    winners_by_num_r16 = {m.match_number: w for m, w in zip(r16, r16_winners_list) if m.match_number}
+    winners_by_num_r16 = _winners_by_match_number(r16, r16_preds, allow_placeholder_winners=allow_placeholder_winners)
 
     qf = _feeders_to_matches(rules.get("qf_feeders", []), winners_by_num_r16)
-    qf_winners_list = _apply_preds(qf, qf_preds)
-    winners_by_num_qf = {m.match_number: w for m, w in zip(qf, qf_winners_list) if m.match_number}
+    winners_by_num_qf = _winners_by_match_number(qf, qf_preds, allow_placeholder_winners=allow_placeholder_winners)
 
     sf = _feeders_to_matches(rules.get("sf_feeders", []), winners_by_num_qf)
-    sf_winners_list = _apply_preds(sf, sf_preds)
-    winners_by_num_sf = {m.match_number: w for m, w in zip(sf, sf_winners_list) if m.match_number}
+    winners_by_num_sf = _winners_by_match_number(sf, sf_preds, allow_placeholder_winners=allow_placeholder_winners)
 
     final = _feeders_to_matches(rules.get("final_feeders", []), winners_by_num_sf)
-    _apply_preds(final, final_pred)
+    _winners_by_match_number(final, final_pred, allow_placeholder_winners=allow_placeholder_winners)
 
     def _serialize(matches: list[BracketMatch]) -> list[dict]:
         return [

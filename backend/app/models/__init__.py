@@ -91,6 +91,7 @@ class User(Base):
     special_prediction: Mapped["SpecialPrediction | None"] = relationship(back_populates="user", uselist=False)
     score: Mapped["UserScore | None"] = relationship(back_populates="user", uselist=False)
     match_scores: Mapped[list["UserMatchScore"]] = relationship(back_populates="user")
+    knockout_bracket: Mapped[list["UserKnockoutBracket"]] = relationship(back_populates="user")
     standings_cache: Mapped[list["GroupStandingsCache"]] = relationship(back_populates="user")
 
 
@@ -272,3 +273,25 @@ class KnockoutPrediction(Base):
     sim_team_b_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), nullable=True)
     predicted_score_a: Mapped[int] = mapped_column(Integer, nullable=False)
     predicted_score_b: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class UserKnockoutBracket(Base):
+    """Resolved per-user knockout fixture (matches 73–104) — no TBD after submit."""
+
+    __tablename__ = "user_knockout_brackets"
+    __table_args__ = (UniqueConstraint("user_id", "bracket_slot", name="uq_user_knockout_bracket_slot"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    match_id: Mapped[int | None] = mapped_column(ForeignKey("matches.id"), nullable=True, index=True)
+    bracket_slot: Mapped[str] = mapped_column(String(20), nullable=False)
+    stage: Mapped[MatchStage] = mapped_column(Enum(MatchStage), nullable=False, index=True)
+    match_number: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    team_a_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
+    team_b_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), nullable=False)
+    predicted_score_a: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    predicted_score_b: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    source_group_state_hash: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    user: Mapped["User"] = relationship(back_populates="knockout_bracket")

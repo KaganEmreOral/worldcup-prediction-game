@@ -76,7 +76,14 @@ export default function PredictPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
-        body: JSON.stringify({ predictions: preds }),
+        body: JSON.stringify({
+          predictions: preds,
+          knockout_predictions: Object.entries(koScores).map(([bracket_slot, [predicted_score_a, predicted_score_b]]) => ({
+            bracket_slot,
+            predicted_score_a,
+            predicted_score_b,
+          })),
+        }),
       }).then((r) => r.json()),
   });
 
@@ -264,11 +271,11 @@ export default function PredictPage() {
                       {stageMatches.map((m) => (
                         <div key={m.label} className="card knockout-row">
                           <span className="text-pitch-500 w-full sm:w-14 shrink-0">{m.label}</span>
-                          <span className="flex-1 text-right truncate">{m.team_a?.code || "TBD"}</span>
+                          <span className="flex-1 text-right truncate">{m.team_a?.code || m.team_a?.name || "—"}</span>
                           <input type="number" min={0} className="input-score" value={koScores[m.label]?.[0] ?? ""} onChange={(e) => setKoScore(m.label, "a", parseInt(e.target.value) || 0)} />
                           <span className="text-pitch-400">-</span>
                           <input type="number" min={0} className="input-score" value={koScores[m.label]?.[1] ?? ""} onChange={(e) => setKoScore(m.label, "b", parseInt(e.target.value) || 0)} />
-                          <span className="flex-1 truncate">{m.team_b?.code || "TBD"}</span>
+                          <span className="flex-1 truncate">{m.team_b?.code || m.team_b?.name || "—"}</span>
                         </div>
                       ))}
                     </div>

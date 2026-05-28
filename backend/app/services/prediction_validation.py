@@ -4,16 +4,17 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Match, MatchStage
+from app.models import Match, MatchStage, Team
 from app.schemas import PredictionBulkSubmit
 from app.seeds.tournament_loader import get_active_tournament
-from app.services.group_simulation import MatchResult, compute_group_standings, rank_third_place_teams
-from app.services.knockout_generator import build_knockout_tree, generate_r32_bracket
-from app.services.scoring_engine import simulate_user_groups
 from app.services.tournament_config import get_knockout_rules
+from app.services.user_tournament_simulation import (
+    build_user_tournament_tree,
+    validate_tree_no_tbd,
+)
 
 
-async def _load_group_matches(db: AsyncSession) -> list[Match]:
+async def load_group_matches(db: AsyncSession) -> list[Match]:
     tournament = await get_active_tournament(db)
     q = select(Match).where(Match.stage == MatchStage.GROUP).order_by(Match.match_number)
     if tournament:
@@ -21,9 +22,15 @@ async def _load_group_matches(db: AsyncSession) -> list[Match]:
     return list((await db.execute(q)).scalars().all())
 
 
-async def _teams_by_group(db: AsyncSession) -> dict[str, list[tuple[int, str, str]]]:
-    from app.models import Team
+async def load_knockout_matches(db: AsyncSession) -> list[Match]:
+    tournament = await get_active_tournament(db)
+    q = select(Match).where(Match.stage != MatchStage.GROUP).order_by(Match.match_number)
+    if tournament:
+        q = q.where(Match.tournament_id == tournament.id)
+    return list((await db.execute(q)).scalars().all())
 
+
+async def load_teams_by_group(db: AsyncSession) -> dict[str, list[tuple[int, str, str]]]:
     tournament = await get_active_tournament(db)
     q = select(Team).order_by(Team.group_name, Team.name)
     if tournament:
@@ -42,21 +49,15 @@ def _expected_knockout_labels(
     predictions: dict[int, tuple[int, int]],
     rules: dict,
 ) -> set[str]:
-    user_qualifiers = simulate_user_groups(teams_by_group, predictions, group_matches)
-    if not user_qualifiers:
-        return set()
-    all_standings = {}
-    for group_name, team_list in teams_by_group.items():
-        results = []
-        for m in group_matches:
-            if m.group_name == group_name and m.id in predictions:
-                sa, sb = predictions[m.id]
-                results.append(MatchResult(m.team_a_id, m.team_b_id, sa, sb))
-        if results:
-            all_standings[group_name] = compute_group_standings(team_list, results)
-    third_ranked = rank_third_place_teams(all_standings)
-    r32 = generate_r32_bracket(user_qualifiers, third_ranked, rules)
-    tree = build_knockout_tree(r32, rules)
+    """All knockout bracket_slot labels for this user's simulated groups."""
+    _, tree, _ = build_user_tournament_tree(
+        teams_by_group,
+        group_matches,
+        predictions,
+        {},
+        rules,
+        allow_placeholder_winners=True,
+    )
     labels: set[str] = set()
     for stage_matches in tree.values():
         for m in stage_matches:
@@ -68,7 +69,7 @@ async def validate_prediction_submission(db: AsyncSession, data: PredictionBulkS
     """Reject incomplete submissions (group, knockout, special, champion)."""
     errors: list[str] = []
 
-    group_matches = await _load_group_matches(db)
+    group_matches = await load_group_matches(db)
     expected_group_ids = {m.id for m in group_matches}
     submitted_ids = {p.match_id for p in data.predictions}
 
@@ -89,7 +90,7 @@ async def validate_prediction_submission(db: AsyncSession, data: PredictionBulkS
         errors.append("Top assister is required.")
 
     rules = await get_knockout_rules(db)
-    teams_by_group = await _teams_by_group(db)
+    teams_by_group = await load_teams_by_group(db)
     expected_ko_labels = _expected_knockout_labels(
         teams_by_group, group_matches, predictions_map, rules
     )
@@ -105,6 +106,24 @@ async def validate_prediction_submission(db: AsyncSession, data: PredictionBulkS
     final_preds = [kp for kp in data.knockout_predictions if kp.stage == "F"]
     if not final_preds:
         errors.append("Final match prediction is required (champion).")
+
+    if not errors and predictions_map:
+        knockout_map = {
+            kp.bracket_slot: (kp.predicted_score_a, kp.predicted_score_b)
+            for kp in data.knockout_predictions
+        }
+        try:
+            _, tree, _ = build_user_tournament_tree(
+                teams_by_group,
+                group_matches,
+                predictions_map,
+                knockout_map,
+                rules,
+                allow_placeholder_winners=False,
+            )
+            validate_tree_no_tbd(tree, strict=True)
+        except ValueError as exc:
+            errors.append(str(exc))
 
     if errors:
         raise HTTPException(status_code=400, detail={"message": "Incomplete predictions", "errors": errors})

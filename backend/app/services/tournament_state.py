@@ -12,6 +12,7 @@ from app.models import (
     Match,
     MatchStatus,
     TournamentSettings,
+    UserKnockoutBracket,
     UserMatchScore,
     UserScore,
 )
@@ -27,6 +28,7 @@ async def clear_derived_state(db: AsyncSession) -> None:
     await db.execute(delete(UserMatchScore))
     await db.execute(delete(GroupStandingsCache))
     await db.execute(delete(KnockoutBracketCache))
+    await db.execute(delete(UserKnockoutBracket))
     await db.execute(delete(LeaderboardSnapshot))
     await db.execute(delete(UserScore))
     await db.flush()

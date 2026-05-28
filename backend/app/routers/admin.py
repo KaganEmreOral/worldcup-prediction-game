@@ -5,7 +5,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.deps import require_admin
 from app.database import get_db
-from app.models import KnockoutPrediction, Match, MatchStage, MatchStatus, Prediction, SpecialPrediction, Team, Tournament, TournamentSettings, User
+from app.models import (
+    GroupStandingsCache,
+    KnockoutBracketCache,
+    KnockoutPrediction,
+    Match,
+    MatchStage,
+    MatchStatus,
+    Prediction,
+    SpecialPrediction,
+    Team,
+    Tournament,
+    TournamentSettings,
+    User,
+    UserKnockoutBracket,
+)
 from app.schemas import MatchCreate, MatchUpdate, TournamentImportRequest, TournamentSettingsResponse, TournamentSettingsUpdate
 from app.seeds.tournament_loader import TournamentImportError, get_active_tournament, import_tournament, load_seed_bundle, validate_seed_bundle
 from app.services.group_simulation import MatchResult, compute_group_standings, get_qualified_teams, rank_third_place_teams
@@ -56,6 +70,9 @@ async def reset_user_predictions(
     await db.execute(delete(Prediction).where(Prediction.user_id == user_id))
     await db.execute(delete(KnockoutPrediction).where(KnockoutPrediction.user_id == user_id))
     await db.execute(delete(SpecialPrediction).where(SpecialPrediction.user_id == user_id))
+    await db.execute(delete(GroupStandingsCache).where(GroupStandingsCache.user_id == user_id))
+    await db.execute(delete(KnockoutBracketCache).where(KnockoutBracketCache.user_id == user_id))
+    await db.execute(delete(UserKnockoutBracket).where(UserKnockoutBracket.user_id == user_id))
     await db.flush()
     recompute = await recompute_tournament_state(db, trigger_source="admin_reset_user_predictions")
     return {

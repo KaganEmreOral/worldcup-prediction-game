@@ -8,7 +8,13 @@ from app.auth.deps import get_current_user
 from app.database import get_db
 from app.models import KnockoutPrediction, Match, MatchStage, Prediction, SpecialPrediction, TournamentSettings, User
 from app.schemas import PredictionBulkSubmit
-from app.services.prediction_validation import validate_prediction_submission
+from app.services.prediction_validation import (
+    load_group_matches,
+    load_knockout_matches,
+    load_teams_by_group,
+    validate_prediction_submission,
+)
+from app.services.user_tournament_simulation import persist_user_tournament_state
 
 from app.seeds.tournament_loader import get_active_tournament
 
@@ -117,10 +123,32 @@ async def submit_predictions(
     )
 
     await db.flush()
+
+    group_predictions = {p.match_id: (p.predicted_score_a, p.predicted_score_b) for p in data.predictions}
+    knockout_preds = {
+        kp.bracket_slot: (kp.predicted_score_a, kp.predicted_score_b) for kp in data.knockout_predictions
+    }
+    group_matches = await load_group_matches(db)
+    knockout_matches = await load_knockout_matches(db)
+    teams_by_group = await load_teams_by_group(db)
+
+    tournament_state = await persist_user_tournament_state(
+        db,
+        user.id,
+        group_matches,
+        knockout_matches,
+        group_predictions,
+        knockout_preds,
+        teams_by_group,
+    )
+
+    await db.flush()
     return {
         "message": "Predictions submitted successfully",
         "count": len(data.predictions),
         "knockout_count": len(data.knockout_predictions),
+        "bracket_slots": sum(len(tournament_state["bracket"].get(s, [])) for s in ("R32", "R16", "QF", "SF", "F")),
+        "state_hash": tournament_state["state_hash"],
     }
 
 

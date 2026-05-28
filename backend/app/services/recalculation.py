@@ -19,6 +19,7 @@ from app.models import (
     Team,
     TournamentSettings,
     User,
+    UserKnockoutBracket,
     UserMatchScore,
     UserScore,
 )
@@ -113,6 +114,7 @@ async def recalculate_all(
     if skip_derived_clear:
         await db.execute(delete(GroupStandingsCache))
         await db.execute(delete(KnockoutBracketCache))
+        await db.execute(delete(UserKnockoutBracket))
         await db.execute(delete(UserMatchScore))
     else:
         from app.services.tournament_state import clear_derived_state

@@ -48,6 +48,24 @@ MIGRATIONS = [
     """,
     "CREATE INDEX IF NOT EXISTS ix_user_match_scores_user_id ON user_match_scores(user_id)",
     "CREATE INDEX IF NOT EXISTS ix_user_match_scores_match_id ON user_match_scores(match_id)",
+    """
+    CREATE TABLE IF NOT EXISTS user_knockout_brackets (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        match_id INTEGER REFERENCES matches(id),
+        bracket_slot VARCHAR(20) NOT NULL,
+        stage VARCHAR(10) NOT NULL,
+        match_number INTEGER,
+        team_a_id INTEGER NOT NULL REFERENCES teams(id),
+        team_b_id INTEGER NOT NULL REFERENCES teams(id),
+        predicted_score_a INTEGER NOT NULL DEFAULT 0,
+        predicted_score_b INTEGER NOT NULL DEFAULT 0,
+        source_group_state_hash VARCHAR(32),
+        updated_at TIMESTAMPTZ DEFAULT now(),
+        CONSTRAINT uq_user_knockout_bracket_slot UNIQUE (user_id, bracket_slot)
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS ix_user_knockout_brackets_user_id ON user_knockout_brackets(user_id)",
 ]
 
 
