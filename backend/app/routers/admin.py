@@ -74,11 +74,51 @@ async def reset_match_results_endpoint(
     return await reset_all_match_results(db)
 
 
-@router.get("/matches")
-async def admin_list_matches(admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Match).options(selectinload(Match.team_a), selectinload(Match.team_b)).order_by(Match.match_order, Match.id)
+@router.get("/matches/audit")
+async def admin_matches_audit(admin: User = Depends(require_admin), db: AsyncSession = Depends(get_db)):
+    """Expected vs actual match counts for admin dashboard."""
+    from app.seeds.tournament_loader import load_seed_bundle
+
+    tournament = await get_active_tournament(db)
+    bundle = load_seed_bundle("worldcup_2026")
+    seed_group = len(bundle["matches"]["group_matches"])
+    seed_ko = sum(
+        len(bundle["knockout_rules"].get(k, []))
+        for k in ("r32_fixed", "r16_feeders", "qf_feeders", "sf_feeders", "final_feeders")
     )
+
+    q = select(Match)
+    if tournament:
+        q = q.where(Match.tournament_id == tournament.id)
+    all_m = (await db.execute(q)).scalars().all()
+    by_stage: dict[str, int] = {}
+    for m in all_m:
+        by_stage[m.stage.value] = by_stage.get(m.stage.value, 0) + 1
+    group_nums = sorted(m.match_number for m in all_m if m.stage == MatchStage.GROUP and m.match_number)
+    missing_nums = sorted(set(range(1, 73)) - set(group_nums)) if group_nums else list(range(1, 73))
+
+    return {
+        "seed": {"group": seed_group, "knockout": seed_ko, "total": seed_group + seed_ko},
+        "database": {"by_stage": by_stage, "total": len(all_m)},
+        "group_match_numbers": {"count": len(group_nums), "missing": missing_nums},
+        "group_complete": len(group_nums) == 72 and not missing_nums,
+    }
+
+
+@router.get("/matches")
+async def admin_list_matches(
+    stage: str | None = None,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    tournament = await get_active_tournament(db)
+    q = select(Match).options(selectinload(Match.team_a), selectinload(Match.team_b))
+    if tournament:
+        q = q.where(Match.tournament_id == tournament.id)
+    if stage:
+        q = q.where(Match.stage == MatchStage(stage))
+    q = q.order_by(Match.match_order, Match.match_number, Match.id)
+    result = await db.execute(q)
     matches = result.scalars().unique().all()
     return [
         {
@@ -251,6 +291,60 @@ async def validate_tournament(
     bundle = load_seed_bundle(slug)
     errors = await validate_seed_bundle(bundle)
     return {"valid": len(errors) == 0, "errors": errors, "slug": slug}
+
+
+@router.post("/tournament/populate-knockout")
+async def populate_knockout_bracket(
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Fill knockout match team slots from real group-stage results (admin truth)."""
+    from app.services.knockout_scoring import build_real_knockout_tree, real_knockout_preds_from_matches
+
+    tournament = await get_active_tournament(db)
+    q = select(Team)
+    mq = select(Match)
+    if tournament:
+        q = q.where(Team.tournament_id == tournament.id)
+        mq = mq.where(Match.tournament_id == tournament.id)
+    teams = (await db.execute(q)).scalars().all()
+    all_matches = (await db.execute(mq)).scalars().all()
+    group_matches = [m for m in all_matches if m.stage == MatchStage.GROUP]
+    knockout_matches = [m for m in all_matches if m.stage != MatchStage.GROUP]
+
+    teams_by_group: dict[str, list] = {}
+    for t in teams:
+        if t.group_name:
+            teams_by_group.setdefault(t.group_name, []).append((t.id, t.name, t.code))
+
+    rules = await get_knockout_rules(db)
+    ko_preds = real_knockout_preds_from_matches(knockout_matches)
+    tree = build_real_knockout_tree(teams_by_group, group_matches, ko_preds, rules)
+    if not tree:
+        raise HTTPException(status_code=400, detail="Enter all group-stage results before generating knockout bracket")
+
+    label_to_teams: dict[str, tuple[int | None, int | None]] = {}
+    for stage_matches in tree.values():
+        for m in stage_matches:
+            ta = m.get("team_a", {}) or {}
+            tb = m.get("team_b", {}) or {}
+            label_to_teams[m["label"]] = (ta.get("id"), tb.get("id"))
+
+    updated = 0
+    for m in knockout_matches:
+        if not m.bracket_slot:
+            continue
+        pair = label_to_teams.get(m.bracket_slot)
+        if not pair:
+            continue
+        ta_id, tb_id = pair
+        if ta_id and tb_id:
+            m.team_a_id = ta_id
+            m.team_b_id = tb_id
+            updated += 1
+
+    await db.flush()
+    return {"message": f"Updated {updated} knockout matches from real group results", "bracket_stages": list(tree.keys())}
 
 
 @router.get("/tournament/preview-bracket")

@@ -26,6 +26,7 @@ export default function AdminPage() {
   };
   const [importMsg, setImportMsg] = useState("");
   const [testingMsg, setTestingMsg] = useState("");
+  const [matchStageFilter, setMatchStageFilter] = useState<string>("group");
 
   const { data: tournaments } = useQuery({
     queryKey: ["admin-tournaments"],
@@ -55,10 +56,25 @@ export default function AdminPage() {
     enabled: !!user?.is_admin,
   });
 
-  const { data: matches } = useQuery({
-    queryKey: ["admin-matches"],
-    queryFn: adminApi.matches,
+  const { data: matchAudit } = useQuery({
+    queryKey: ["admin-matches-audit"],
+    queryFn: adminApi.matchesAudit,
     enabled: !!user?.is_admin,
+  });
+
+  const { data: matches } = useQuery({
+    queryKey: ["admin-matches", matchStageFilter],
+    queryFn: () => adminApi.matches(matchStageFilter === "all" ? undefined : matchStageFilter),
+    enabled: !!user?.is_admin,
+  });
+
+  const populateKnockout = useMutation({
+    mutationFn: adminApi.populateKnockout,
+    onSuccess: (d) => {
+      setMatchSaveMsg(d.message);
+      invalidateAllData();
+      qc.invalidateQueries({ queryKey: ["admin-matches"] });
+    },
   });
 
   const { data: users } = useQuery({
@@ -290,7 +306,36 @@ export default function AdminPage() {
         </div>
         {resetMsg && <p className="text-green-400 text-sm mb-3">{resetMsg}</p>}
         {matchSaveMsg && <p className="text-green-400 text-sm mb-3">{matchSaveMsg}</p>}
-        <div className="overflow-x-auto max-h-96 overflow-y-auto">
+        {matchAudit && (
+          <p className="text-sm text-pitch-400 mb-3">
+            DB: {matchAudit.database.by_stage.group ?? 0}/72 group · {matchAudit.database.total} total
+            {!matchAudit.group_complete && matchAudit.group_match_numbers.missing.length > 0 && (
+              <span className="text-red-400"> · missing #{matchAudit.group_match_numbers.missing.slice(0, 5).join(", ")}…</span>
+            )}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2 mb-3">
+          {["group", "R32", "R16", "QF", "SF", "F", "all"].map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setMatchStageFilter(s)}
+              className={`px-3 py-1 rounded text-xs ${matchStageFilter === s ? "bg-gold-500 text-pitch-900" : "bg-pitch-800"}`}
+            >
+              {s === "all" ? "All" : s}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => populateKnockout.mutate()}
+            disabled={populateKnockout.isPending}
+            className="btn-secondary text-xs py-1"
+          >
+            Generate real KO bracket
+          </button>
+        </div>
+        <p className="text-xs text-pitch-500 mb-2">{matches?.length ?? 0} matches shown</p>
+        <div className="overflow-x-auto max-h-[32rem] overflow-y-auto">
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-pitch-800">
               <tr className="text-pitch-300 border-b border-pitch-600">
@@ -302,7 +347,7 @@ export default function AdminPage() {
               </tr>
             </thead>
             <tbody>
-              {matches?.slice(0, 50).map((m) => (
+              {matches?.map((m) => (
                 <MatchRow key={m.id} match={m} onSave={(data) => updateMatch.mutate({ id: m.id, data })} />
               ))}
             </tbody>

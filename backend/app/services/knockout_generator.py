@@ -165,11 +165,13 @@ def advance_knockout_round(
 def build_knockout_tree(
     r32: list[BracketMatch],
     rules: dict,
+    r32_preds: dict[str, tuple[int, int]] | None = None,
     r16_preds: dict[str, tuple[int, int]] | None = None,
     qf_preds: dict[str, tuple[int, int]] | None = None,
     sf_preds: dict[str, tuple[int, int]] | None = None,
     final_pred: dict[str, tuple[int, int]] | None = None,
 ) -> dict:
+    r32_preds = r32_preds or {}
     r16_preds = r16_preds or {}
     qf_preds = qf_preds or {}
     sf_preds = sf_preds or {}
@@ -203,7 +205,7 @@ def build_knockout_tree(
             )
         return result
 
-    r32_winners_list = _apply_preds(r32, {})
+    r32_winners_list = _apply_preds(r32, r32_preds)
     winners_by_num: dict[int, BracketTeam] = {}
     for m, w in zip(r32, r32_winners_list):
         if m.match_number:

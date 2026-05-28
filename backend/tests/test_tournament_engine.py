@@ -12,7 +12,7 @@ from app.services.group_simulation import (
     rank_third_place_teams,
 )
 from app.services.knockout_generator import assign_third_place_teams, generate_r32_bracket, load_rules_from_dict
-from app.services.scoring_engine import score_group_match, score_knockout_match, score_qualification
+from app.services.scoring_engine import score_group_match, score_qualification
 from app.models import MatchStage
 
 SEEDS = Path(__file__).resolve().parent.parent / "app" / "seeds" / "tournaments" / "worldcup_2026"
@@ -108,14 +108,9 @@ def test_score_group_match():
     assert pts2 == 3  # outcome only
 
 
-def test_score_knockout_match():
-    wp, ep, _ = score_knockout_match(MatchStage.F, 2, 1, 2, 1)
-    assert wp == 30 and ep == 15
-
-
 def test_score_qualification():
     pred = {"A": [{"team_id": 1, "position": 1}, {"team_id": 2, "position": 2}]}
     real = {"A": [{"team_id": 1, "position": 1}, {"team_id": 3, "position": 2}]}
     qp, wp, fb, _ = score_qualification(pred, real)
-    assert qp == 5  # team 1 qualified in both
-    assert wp == 3  # group winner correct
+    assert qp == 4  # team 1 qualified in both
+    assert wp == 5  # group winner correct

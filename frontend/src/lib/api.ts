@@ -82,6 +82,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     const detail = err.detail;
     if (typeof detail === "string") throw new Error(detail);
+    if (detail && typeof detail === "object" && Array.isArray(detail.errors)) {
+      throw new Error(detail.errors.join("; "));
+    }
     if (Array.isArray(detail)) {
       const msg = detail.map((d: { msg?: string; loc?: string[] }) => d.msg || JSON.stringify(d)).join("; ");
       throw new Error(msg || "Validation error");
@@ -219,7 +222,17 @@ export interface AdminUser {
 
 export const admin = {
   users: () => api<AdminUser[]>("/admin/users"),
-  matches: () => api<Match[]>("/admin/matches"),
+  matches: (stage?: string) =>
+    api<Match[]>(stage ? `/admin/matches?stage=${encodeURIComponent(stage)}` : "/admin/matches"),
+  matchesAudit: () =>
+    api<{
+      seed: { group: number; knockout: number; total: number };
+      database: { by_stage: Record<string, number>; total: number };
+      group_match_numbers: { count: number; missing: number[] };
+      group_complete: boolean;
+    }>("/admin/matches/audit"),
+  populateKnockout: () =>
+    api<{ message: string; bracket_stages: string[] }>("/admin/tournament/populate-knockout", { method: "POST" }),
   updateMatch: (id: number, data: Record<string, unknown>) =>
     api<{
       message: string;

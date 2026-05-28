@@ -49,8 +49,16 @@ class TournamentImportError(Exception):
 
 async def validate_seed_bundle(bundle: dict) -> list[str]:
     errors: list[str] = []
+    group_matches = bundle.get("matches", {}).get("group_matches", [])
+    if len(group_matches) != 72:
+        errors.append(f"Expected 72 group matches in seed, found {len(group_matches)}")
+    nums = sorted(m.get("match_number") for m in group_matches if m.get("match_number"))
+    if nums and (nums[0] != 1 or nums[-1] != 72 or len(set(nums)) != 72):
+        missing = sorted(set(range(1, 73)) - set(nums))
+        if missing:
+            errors.append(f"Missing group match numbers in seed: {missing[:10]}...")
     teams = {t["code"] for t in bundle.get("teams", {}).get("teams", [])}
-    for m in bundle.get("matches", {}).get("group_matches", []):
+    for m in group_matches:
         if m["team_a_code"] not in teams:
             errors.append(f"Unknown team_a {m['team_a_code']} in match {m['match_number']}")
         if m["team_b_code"] not in teams:

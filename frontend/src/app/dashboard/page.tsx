@@ -58,8 +58,8 @@ export default function DashboardPage() {
             <p className={`text-2xl sm:text-3xl font-bold ${s.highlight ? "text-gold-400" : ""}`}>
               {typeof s.value === "number" ? s.value.toFixed(1) : s.value}
             </p>
-            {s.label === "Total Score" && score?.chain_bonus ? (
-              <p className="text-xs text-pitch-400 mt-1">+{score.chain_bonus.toFixed(1)} chain bonus</p>
+            {s.label === "Total Score" && score?.breakdown_json?.knockout_progression ? (
+              <p className="text-xs text-pitch-400 mt-1">incl. {Number(score.breakdown_json.knockout_progression)} KO progression</p>
             ) : null}
           </div>
         ))}

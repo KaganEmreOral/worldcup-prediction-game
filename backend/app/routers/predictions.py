@@ -8,6 +8,7 @@ from app.auth.deps import get_current_user
 from app.database import get_db
 from app.models import KnockoutPrediction, Match, MatchStage, Prediction, SpecialPrediction, TournamentSettings, User
 from app.schemas import PredictionBulkSubmit
+from app.services.prediction_validation import validate_prediction_submission
 
 from app.seeds.tournament_loader import get_active_tournament
 
@@ -74,6 +75,8 @@ async def submit_predictions(
     if existing.scalars().first():
         raise HTTPException(status_code=400, detail="Predictions already submitted. Contact admin to reset.")
 
+    await validate_prediction_submission(db, data)
+
     match_ids = {p.match_id for p in data.predictions}
     match_result = await db.execute(select(Match).where(Match.id.in_(match_ids)))
     found = {m.id for m in match_result.scalars()}
@@ -104,15 +107,14 @@ async def submit_predictions(
             )
         )
 
-    if data.top_scorer or data.top_assister:
-        db.add(
-            SpecialPrediction(
-                user_id=user.id,
-                top_scorer=data.top_scorer,
-                top_assister=data.top_assister,
-                submitted_at=datetime.now(timezone.utc),
-            )
+    db.add(
+        SpecialPrediction(
+            user_id=user.id,
+            top_scorer=data.top_scorer.strip(),
+            top_assister=data.top_assister.strip(),
+            submitted_at=datetime.now(timezone.utc),
         )
+    )
 
     await db.flush()
     return {

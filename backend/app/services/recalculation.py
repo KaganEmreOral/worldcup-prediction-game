@@ -24,17 +24,23 @@ from app.models import (
 )
 from app.services.cache import invalidate
 from app.services.group_simulation import MatchResult, compute_group_standings
+from app.services.knockout_scoring import (
+    build_real_knockout_tree,
+    build_user_knockout_tree,
+    real_knockout_preds_from_matches,
+    score_knockout_exact_bonuses,
+    score_knockout_progression,
+)
 from app.services.scoring_engine import (
     ScoreBreakdown,
     build_match_score_entry,
-    compute_chain_bonus,
     score_group_match,
-    score_knockout_match,
     score_qualification,
     simulate_real_groups,
     simulate_user_groups,
     _enrich_detail,
 )
+from app.services.tournament_config import get_knockout_rules
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +103,9 @@ async def recalculate_all(
     users = users_result.scalars().all()
 
     real_qualifiers = simulate_real_groups(teams_by_group, group_matches)
+    rules = await get_knockout_rules(db)
+    real_ko_preds_map = real_knockout_preds_from_matches(knockout_matches)
+    real_tree = build_real_knockout_tree(teams_by_group, group_matches, real_ko_preds_map, rules)
 
     leaderboard = []
     recent_events: list[dict] = []
@@ -160,42 +169,36 @@ async def recalculate_all(
         ko_pred_result = await db.execute(
             select(KnockoutPrediction).where(KnockoutPrediction.user_id == user.id)
         )
-        user_ko_preds = {kp.bracket_slot: kp for kp in ko_pred_result.scalars()}
-        real_ko_by_slot = {m.bracket_slot: m for m in knockout_matches if m.bracket_slot}
+        user_ko_list = list(ko_pred_result.scalars().all())
+        user_ko_preds = {kp.bracket_slot: kp for kp in user_ko_list}
+        user_ko_score_map = {
+            kp.bracket_slot: (kp.predicted_score_a, kp.predicted_score_b) for kp in user_ko_list
+        }
 
-        knockout_paths: dict[int, list[bool]] = {}
-        for slot, m in real_ko_by_slot.items():
+        if real_tree and predictions:
+            user_tree = build_user_knockout_tree(
+                teams_by_group, predictions, group_matches, user_ko_score_map, rules
+            )
+            kp_pts, kp_det = score_knockout_progression(user_tree, real_tree)
+            breakdown.knockout_progression_points += kp_pts
+            breakdown.details.extend(kp_det)
+
+        ke_pts, ke_det = score_knockout_exact_bonuses(user_ko_preds, knockout_matches)
+        breakdown.knockout_exact_points += ke_pts
+        breakdown.details.extend(ke_det)
+
+        for slot, m in {m.bracket_slot: m for m in knockout_matches if m.bracket_slot}.items():
             kp = user_ko_preds.get(slot)
             if not kp or m.real_score_a is None:
                 continue
-            wp, ep, det = score_knockout_match(
-                m.stage, kp.predicted_score_a, kp.predicted_score_b, m.real_score_a, m.real_score_b
-            )
-            total_ko = wp + ep
-            breakdown.knockout_winner_points += wp
-            breakdown.knockout_exact_points += ep
-            breakdown.details.extend(det)
-            entry = build_match_score_entry(
-                m, kp.predicted_score_a, kp.predicted_score_b, m.real_score_a, m.real_score_b,
-                total_ko, det, bracket_slot=slot,
-            )
-            breakdown.match_scores.append(entry)
-            if total_ko > 0:
+            pts = sum(d.get("points", 0) for d in ke_det if d.get("bracket_slot") == slot)
+            if pts > 0:
+                entry = build_match_score_entry(
+                    m, kp.predicted_score_a, kp.predicted_score_b, m.real_score_a, m.real_score_b,
+                    pts, [], bracket_slot=slot,
+                )
+                breakdown.match_scores.append(entry)
                 recent_events.append({**entry, "user_name": user.name, "user_id": user.id})
-
-            real_winner = m.team_a_id if m.real_score_a > m.real_score_b else m.team_b_id
-            if m.real_score_a == m.real_score_b:
-                real_winner = m.team_a_id
-            pred_winner = kp.sim_team_a_id if kp.predicted_score_a > kp.predicted_score_b else kp.sim_team_b_id
-            if kp.predicted_score_a == kp.predicted_score_b:
-                pred_winner = kp.sim_team_a_id
-            correct = real_winner == pred_winner
-            if kp.sim_team_a_id:
-                knockout_paths.setdefault(kp.sim_team_a_id, []).append(correct and pred_winner == kp.sim_team_a_id)
-
-        chain_bonus, chain_det = compute_chain_bonus(knockout_paths)
-        breakdown.chain_bonus_points = chain_bonus
-        breakdown.details.extend(chain_det)
 
         sp_result = await db.execute(select(SpecialPrediction).where(SpecialPrediction.user_id == user.id))
         sp = sp_result.scalar_one_or_none()
@@ -217,17 +220,16 @@ async def recalculate_all(
         user_score.qualification_score = breakdown.qualification_points + breakdown.group_winner_points + breakdown.full_group_bonus
         user_score.knockout_score = breakdown.knockout_total
         user_score.special_score = breakdown.special_points
-        user_score.chain_bonus = breakdown.chain_bonus_points
+        user_score.chain_bonus = 0
         user_score.total_score = breakdown.total
         user_score.breakdown_json = {
             "group_match": breakdown.group_match_points,
             "qualification": breakdown.qualification_points,
             "group_winner": breakdown.group_winner_points,
             "full_group_bonus": breakdown.full_group_bonus,
-            "knockout_winner": breakdown.knockout_winner_points,
+            "knockout_progression": breakdown.knockout_progression_points,
             "knockout_exact": breakdown.knockout_exact_points,
             "special": breakdown.special_points,
-            "chain_bonus": breakdown.chain_bonus_points,
             "details": [_enrich_detail(d) if "label" not in d else d for d in breakdown.details[:200]],
             "match_scores": breakdown.match_scores,
         }

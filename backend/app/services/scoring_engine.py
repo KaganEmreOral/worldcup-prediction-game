@@ -9,46 +9,16 @@ from app.services.group_simulation import (
     get_qualified_teams,
 )
 
-STAGE_WINNER_POINTS = {
-    MatchStage.R32: 6,
-    MatchStage.R16: 8,
-    MatchStage.QF: 12,
-    MatchStage.SF: 15,
-    MatchStage.F: 30,
-}
-
-STAGE_WINNER_LABELS = {
-    MatchStage.R32: "R32 winner correct (+6)",
-    MatchStage.R16: "R16 winner correct (+8)",
-    MatchStage.QF: "QF winner correct (+12)",
-    MatchStage.SF: "SF winner correct (+15)",
-    MatchStage.F: "Champion correct (+30)",
-}
-
-STAGE_EXACT_POINTS = {
-    MatchStage.R32: 4,
-    MatchStage.R16: 5,
-    MatchStage.QF: 6,
-    MatchStage.SF: 8,
-    MatchStage.F: 15,
-}
-
-STAGE_EXACT_LABELS = {
-    MatchStage.R32: "R32 exact score (+4)",
-    MatchStage.R16: "R16 exact score (+5)",
-    MatchStage.QF: "QF exact score (+6)",
-    MatchStage.SF: "SF exact score (+8)",
-    MatchStage.F: "Final exact score (+15)",
-}
-
-CHAIN_MULTIPLIERS = {3: 1.1, 4: 1.25, 5: 1.5}
-
 DETAIL_LABELS = {
     "group_outcome": "Correct outcome (+3)",
     "group_exact": "Exact score (+5)",
-    "qualification_team": "Correct qualifier (+5)",
-    "group_winner": "Group winner (+3)",
-    "full_group_bonus": "Full group correct (+10)",
+    "qualification_team": "Correct qualifier (+4)",
+    "group_winner": "Group winner (+5)",
+    "full_group_bonus": "Perfect group (+10)",
+    "knockout_advance": "Knockout progression",
+    "finalist": "Correct finalist (+20)",
+    "champion": "Champion correct (+40)",
+    "knockout_exact": "Knockout exact score bonus",
     "top_scorer": "Golden Boot correct (+20)",
     "top_assister": "Top assister correct (+20)",
 }
@@ -60,10 +30,9 @@ class ScoreBreakdown:
     qualification_points: int = 0
     group_winner_points: int = 0
     full_group_bonus: int = 0
-    knockout_winner_points: int = 0
+    knockout_progression_points: int = 0
     knockout_exact_points: int = 0
     special_points: int = 0
-    chain_bonus_points: float = 0.0
     details: list = field(default_factory=list)
     match_scores: list = field(default_factory=list)
 
@@ -73,12 +42,11 @@ class ScoreBreakdown:
 
     @property
     def knockout_total(self) -> int:
-        return self.knockout_winner_points + self.knockout_exact_points
+        return self.knockout_progression_points + self.knockout_exact_points
 
     @property
     def total(self) -> float:
-        base = self.group_total + self.knockout_total + self.special_points
-        return base + self.chain_bonus_points
+        return self.group_total + self.knockout_total + self.special_points
 
 
 def _outcome(score_a: int, score_b: int) -> str:
@@ -91,16 +59,15 @@ def _outcome(score_a: int, score_b: int) -> str:
 
 def _enrich_detail(detail: dict) -> dict:
     t = detail.get("type", "")
-    if t == "knockout_winner":
-        stage = MatchStage(detail["stage"])
-        detail["label"] = STAGE_WINNER_LABELS.get(stage, f"Winner correct (+{detail.get('points', 0)})")
+    if t == "knockout_advance":
+        detail["label"] = (
+            f"{detail.get('stage', 'KO')} advancement: {detail.get('teams', 0)} teams "
+            f"(+{detail.get('points_each', 0)} each) = +{detail.get('points', 0)}"
+        )
     elif t == "knockout_exact":
-        stage = MatchStage(detail["stage"])
-        detail["label"] = STAGE_EXACT_LABELS.get(stage, f"Exact score (+{detail.get('points', 0)})")
+        detail["label"] = f"{detail.get('stage', 'KO')} exact score bonus (+{detail.get('points', 0)})"
     elif t in DETAIL_LABELS:
         detail["label"] = DETAIL_LABELS[t]
-    elif t == "chain_bonus":
-        detail["label"] = f"Chain bonus ({detail.get('streak', 0)} rounds)"
     else:
         detail["label"] = t.replace("_", " ").title()
     return detail
@@ -180,13 +147,13 @@ def score_qualification(
             pred_winners[group] = teams[0]["team_id"]
 
     for tid in pred_qualified_ids & real_qualified_ids:
-        qual_points += 5
-        details.append(_enrich_detail({"type": "qualification_team", "team_id": tid, "points": 5}))
+        qual_points += 4
+        details.append(_enrich_detail({"type": "qualification_team", "team_id": tid, "points": 4}))
 
     for group, winner_id in pred_winners.items():
         if real_winners.get(group) == winner_id:
-            winner_points += 3
-            details.append(_enrich_detail({"type": "group_winner", "group": group, "points": 3}))
+            winner_points += 5
+            details.append(_enrich_detail({"type": "group_winner", "group": group, "points": 5}))
 
     for group in predicted_qualifiers:
         pred_set = {t["team_id"] for t in predicted_qualifiers.get(group, [])}
@@ -196,49 +163,6 @@ def score_qualification(
             details.append(_enrich_detail({"type": "full_group_bonus", "group": group, "points": 10}))
 
     return qual_points, winner_points, full_bonus, details
-
-
-def score_knockout_match(
-    stage: MatchStage,
-    pred_a: int,
-    pred_b: int,
-    real_a: int | None,
-    real_b: int | None,
-) -> tuple[int, int, list]:
-    if real_a is None or real_b is None:
-        return 0, 0, []
-    winner_pts = STAGE_WINNER_POINTS.get(stage, 0)
-    exact_pts = STAGE_EXACT_POINTS.get(stage, 0)
-    wp, ep = 0, 0
-    details = []
-    if _outcome(pred_a, pred_b) == _outcome(real_a, real_b):
-        wp = winner_pts
-        details.append(_enrich_detail({"type": "knockout_winner", "stage": stage.value, "points": wp}))
-    if pred_a == real_a and pred_b == real_b:
-        ep = exact_pts
-        details.append(_enrich_detail({"type": "knockout_exact", "stage": stage.value, "points": ep}))
-    return wp, ep, details
-
-
-def compute_chain_bonus(knockout_paths: dict[int, list[bool]]) -> tuple[float, list]:
-    bonus = 0.0
-    details = []
-    for team_id, rounds in knockout_paths.items():
-        max_streak = 0
-        current = 0
-        for correct in rounds:
-            if correct:
-                current += 1
-                max_streak = max(max_streak, current)
-            else:
-                current = 0
-        if max_streak >= 3:
-            mult = CHAIN_MULTIPLIERS.get(max_streak, CHAIN_MULTIPLIERS[5])
-            round_points = sum(1 for r in rounds if r) * 10
-            extra = round_points * (mult - 1)
-            bonus += extra
-            details.append(_enrich_detail({"type": "chain_bonus", "team_id": team_id, "streak": max_streak, "bonus": extra, "points": extra}))
-    return bonus, details
 
 
 def simulate_user_groups(

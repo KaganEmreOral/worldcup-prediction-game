@@ -46,6 +46,27 @@ export default function PredictPage() {
     (allMatches || []).filter((m) => m.group_name === g).every((m) => scores[m.id] !== undefined)
   );
 
+  const expectedKoLabels = useMemo(() => {
+    const labels = new Set<string>();
+    if (previewBracket?.bracket) {
+      for (const list of Object.values(previewBracket.bracket)) {
+        for (const m of list) labels.add(m.label);
+      }
+    }
+    if (previewBracket?.r32) {
+      for (const m of previewBracket.r32) labels.add(m.label);
+    }
+    return labels;
+  }, [previewBracket]);
+
+  const knockoutFilled = expectedKoLabels.size > 0 && [...expectedKoLabels].every((l) => koScores[l] !== undefined);
+  const knockoutNoDraws = [...expectedKoLabels].every((l) => {
+    const s = koScores[l];
+    return s && s[0] !== s[1];
+  });
+  const specialComplete = topScorer.trim().length > 0 && topAssister.trim().length > 0;
+  const canSubmit = allGroupsComplete && knockoutFilled && knockoutNoDraws && specialComplete;
+
   const previewMutation = useMutation({
     mutationFn: (preds: { match_id: number; predicted_score_a: number; predicted_score_b: number }[]) =>
       fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api"}/simulation/preview-bracket`, {
@@ -96,14 +117,24 @@ export default function PredictPage() {
         predicted_score_b: b,
       }));
 
+      const findBracketMatch = (slot: string) => {
+        const r32m = previewBracket?.r32?.find((m) => m.label === slot);
+        if (r32m) return r32m;
+        for (const list of Object.values(previewBracket?.bracket || {})) {
+          const found = list.find((m) => m.label === slot);
+          if (found) return found;
+        }
+        return null;
+      };
+
       const knockoutPreds = Object.entries(koScores).map(([slot, [a, b]]) => {
-        const r32m = previewBracket?.r32.find((m) => m.label === slot);
+        const bm = findBracketMatch(slot);
         const stage = slot.startsWith("R32") ? "R32" : slot.startsWith("R16") ? "R16" : slot.startsWith("QF") ? "QF" : slot.startsWith("SF") ? "SF" : "F";
         return {
           bracket_slot: slot,
           stage,
-          sim_team_a_id: r32m?.team_a?.id,
-          sim_team_b_id: r32m?.team_b?.id,
+          sim_team_a_id: bm?.team_a?.id,
+          sim_team_b_id: bm?.team_b?.id,
           predicted_score_a: a,
           predicted_score_b: b,
         };
@@ -154,6 +185,18 @@ export default function PredictPage() {
       {activeTournament && (
         <p className="text-pitch-300 mb-6">{activeTournament.name} — one submission only</p>
       )}
+
+      <div className="flex flex-wrap gap-3 mb-4 text-sm">
+        <span className={allGroupsComplete ? "text-green-400" : "text-pitch-400"}>
+          {allGroupsComplete ? "✓" : "○"} Group Stage ({filledCount}/{totalGroupMatches})
+        </span>
+        <span className={knockoutFilled && knockoutNoDraws ? "text-green-400" : "text-pitch-400"}>
+          {knockoutFilled && knockoutNoDraws ? "✓" : "○"} Knockout
+        </span>
+        <span className={specialComplete ? "text-green-400" : "text-pitch-400"}>
+          {specialComplete ? "✓" : "○"} Special Picks
+        </span>
+      </div>
 
       <div className="flex gap-2 mb-6">
         {STAGES.map((s) => (
@@ -253,10 +296,10 @@ export default function PredictPage() {
 
       <button
         onClick={handleSubmit}
-        disabled={submitting || !allGroupsComplete}
-        className="btn-primary mt-8 w-full sm:w-auto px-12"
+        disabled={submitting || !canSubmit}
+        className="btn-primary mt-8 w-full sm:w-auto px-12 disabled:opacity-50"
       >
-        {submitting ? "Submitting..." : "Submit All Predictions"}
+        {submitting ? "Submitting..." : canSubmit ? "Submit All Predictions" : "Complete all sections to submit"}
       </button>
     </div>
   );
