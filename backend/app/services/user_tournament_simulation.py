@@ -18,9 +18,17 @@ from app.models import (
     MatchStage,
     UserKnockoutBracket,
 )
-from app.services.group_simulation import MatchResult, compute_group_standings, rank_third_place_teams
-from app.services.knockout_generator import build_knockout_tree, generate_r32_bracket
-from app.services.scoring_engine import simulate_user_groups
+from app.services.group_simulation import (
+    MatchResult,
+    compute_group_standings,
+    get_qualified_teams,
+    rank_third_place_teams,
+)
+from app.services.knockout_generator import (
+    build_knockout_tree,
+    generate_r32_bracket,
+    validate_r32_bracket,
+)
 from app.services.tournament_config import get_knockout_rules
 
 logger = logging.getLogger(__name__)
@@ -49,10 +57,11 @@ def _state_hash(predictions: dict[int, tuple[int, int]]) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
-def validate_tree_no_tbd(tree: dict, *, strict: bool = True) -> None:
+def validate_tree_no_tbd(tree: dict, *, strict: bool = True, r32_only: bool = False) -> None:
     """Raise if any knockout fixture lacks both teams."""
     missing: list[str] = []
-    for stage in STAGES_ORDER:
+    stages = ("R32",) if r32_only else STAGES_ORDER
+    for stage in stages:
         for m in tree.get(stage, []):
             ta = m.get("team_a")
             tb = m.get("team_b")
@@ -75,9 +84,8 @@ def build_user_tournament_tree(
     Returns (qualifiers, full_tree, standings_by_group).
     When allow_placeholder_winners=True, unset KO scores advance team_a for display only.
     """
-    user_qualifiers = simulate_user_groups(teams_by_group, group_predictions, group_matches)
-    if not user_qualifiers:
-        raise ValueError("Could not simulate group standings from predictions")
+    if len(teams_by_group) != 12:
+        raise ValueError(f"Expected 12 groups, got {len(teams_by_group)}")
 
     all_standings: dict[str, list] = {}
     standings_objs = {}
@@ -87,13 +95,20 @@ def build_user_tournament_tree(
             if m.group_name == group_name and m.id in group_predictions:
                 sa, sb = group_predictions[m.id]
                 results.append(MatchResult(m.team_a_id, m.team_b_id, sa, sb))
-        if results:
-            st = compute_group_standings(team_list, results)
-            standings_objs[group_name] = st
-            all_standings[group_name] = [s.to_dict() for s in st]
+        if not results:
+            raise ValueError(f"Group {group_name} has no predicted match results")
+        st = compute_group_standings(team_list, results)
+        standings_objs[group_name] = st
+        all_standings[group_name] = [s.to_dict() for s in st]
+
+    if len(standings_objs) != 12:
+        raise ValueError("All 12 groups must be simulated before generating Round of 32")
+
+    user_qualifiers = get_qualified_teams(standings_objs, num_best_third=rules.get("best_third_count", 8))
     third_ranked = rank_third_place_teams(standings_objs)
 
     r32 = generate_r32_bracket(user_qualifiers, third_ranked, rules)
+    validate_r32_bracket(r32)
     r32p, r16p, qfp, sfp, finalp = _preds_by_slot(knockout_preds)
     tree = build_knockout_tree(
         r32,
@@ -105,6 +120,7 @@ def build_user_tournament_tree(
         final_pred=finalp,
         allow_placeholder_winners=allow_placeholder_winners,
     )
+    validate_tree_no_tbd({"R32": tree.get("R32", [])}, strict=True, r32_only=True)
     return user_qualifiers, tree, all_standings
 
 

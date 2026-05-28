@@ -84,7 +84,17 @@ export default function PredictPage() {
             predicted_score_b,
           })),
         }),
-      }).then((r) => r.json()),
+      }).then(async (r) => {
+        const data = await r.json();
+        if (!r.ok) {
+          const msg =
+            typeof data.detail === "string"
+              ? data.detail
+              : data.detail?.message || data.detail?.errors?.[0] || "Could not generate bracket";
+          throw new Error(msg);
+        }
+        return data;
+      }),
   });
 
   useEffect(() => {
@@ -95,7 +105,11 @@ export default function PredictPage() {
         predicted_score_b: b,
       }));
       previewMutation.mutate(preds, {
-        onSuccess: (data) => setPreviewBracket({ r32: data.r32 || [], bracket: data.bracket || {} }),
+        onSuccess: (data) => {
+          setError("");
+          setPreviewBracket({ r32: data.r32 || [], bracket: data.bracket || {} });
+        },
+        onError: (err: Error) => setError(err.message || "Could not generate knockout bracket"),
       });
     }
   }, [tab, allGroupsComplete, filledCount]); // eslint-disable-line react-hooks/exhaustive-deps

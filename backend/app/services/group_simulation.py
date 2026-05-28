@@ -131,7 +131,7 @@ class ThirdPlaceCandidate:
 def rank_third_place_teams(
     all_group_standings: dict[str, list[TeamStanding]],
 ) -> list[ThirdPlaceCandidate]:
-    """Rank all 3rd-placed teams across groups for best-8 qualification."""
+    """Rank all 3rd-placed teams across groups (best first) for best-8 qualification."""
     candidates: list[ThirdPlaceCandidate] = []
     for group_name, standings in all_group_standings.items():
         if len(standings) >= 3:
@@ -151,6 +151,14 @@ def rank_third_place_teams(
 
     candidates.sort(key=lambda c: (-c.points, -c.goal_difference, -c.goals_for, c.group_name))
     return candidates
+
+
+def best_third_place_teams(
+    all_group_standings: dict[str, list[TeamStanding]],
+    num_best_third: int = 8,
+) -> list[ThirdPlaceCandidate]:
+    """Top N third-placed teams that qualify for the Round of 32."""
+    return rank_third_place_teams(all_group_standings)[:num_best_third]
 
 
 def get_qualified_teams(

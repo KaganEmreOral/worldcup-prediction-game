@@ -74,6 +74,23 @@ def test_third_place_scenario_lookup(rules):
     assert lookup[key]["74"] == "F"
 
 
+def test_third_place_assignment_uses_top_eight_only(rules):
+    """Passing all 12 ranked thirds must still resolve FIFA scenario (top 8 only)."""
+    from app.services.group_simulation import ThirdPlaceCandidate
+    from app.services.knockout_generator import assign_third_place_teams
+
+    third_ranked = [
+        ThirdPlaceCandidate(
+            100 + ord(g), f"T{g}", f"T{g}", g, 6 if g in "EFGHIJKL" else 1, 2, 3, 3
+        )
+        for g in "ABCDEFGHIJKL"
+    ]
+    assignments = assign_third_place_teams(third_ranked, rules)
+    assert len(assignments) == 8
+    assert 74 in assignments
+    assert assignments[74].source.startswith("3rd-")
+
+
 def test_r32_bracket_generation(rules):
     qualifiers = {
         "A": [{"team_id": 1, "team_name": "Mexico", "team_code": "MEX", "position": 1},

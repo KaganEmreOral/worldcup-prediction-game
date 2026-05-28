@@ -61,6 +61,54 @@ async def list_users(admin: User = Depends(require_admin), db: AsyncSession = De
     return out
 
 
+@router.post("/users/{user_id}/rebuild-bracket")
+async def rebuild_user_bracket(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Rebuild per-user R32→Final bracket from stored predictions (fixes empty 3rd-place slots)."""
+    from app.services.prediction_validation import load_group_matches, load_knockout_matches, load_teams_by_group
+    from app.services.user_tournament_simulation import persist_user_tournament_state
+
+    pred_result = await db.execute(select(Prediction).where(Prediction.user_id == user_id))
+    predictions = {p.match_id: (p.predicted_score_a, p.predicted_score_b) for p in pred_result.scalars()}
+    if not predictions:
+        raise HTTPException(status_code=400, detail="User has no group predictions")
+
+    ko_result = await db.execute(select(KnockoutPrediction).where(KnockoutPrediction.user_id == user_id))
+    ko_list = ko_result.scalars().all()
+    if len(ko_list) < 31:
+        raise HTTPException(status_code=400, detail="User has incomplete knockout predictions")
+
+    ko_map = {kp.bracket_slot: (kp.predicted_score_a, kp.predicted_score_b) for kp in ko_list}
+    group_matches = await load_group_matches(db)
+    knockout_matches = await load_knockout_matches(db)
+    teams_by_group = await load_teams_by_group(db)
+
+    try:
+        state = await persist_user_tournament_state(
+            db,
+            user_id,
+            group_matches,
+            knockout_matches,
+            predictions,
+            ko_map,
+            teams_by_group,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    await db.flush()
+    r32 = state["bracket"].get("R32", [])
+    return {
+        "message": f"Bracket rebuilt for user {user_id}",
+        "state_hash": state["state_hash"],
+        "r32_matches": len(r32),
+        "r32_filled": sum(1 for m in r32 if m.get("team_a") and m.get("team_b")),
+    }
+
+
 @router.post("/users/{user_id}/reset-predictions")
 async def reset_user_predictions(
     user_id: int,

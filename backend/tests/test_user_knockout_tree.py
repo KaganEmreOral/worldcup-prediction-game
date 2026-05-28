@@ -32,11 +32,12 @@ def test_full_knockout_tree_no_tbd_with_all_preds(rules):
     from app.services.group_simulation import ThirdPlaceCandidate
 
     qualifiers = _minimal_qualifiers()
+    # All 12 third-place teams ranked; generator must use top 8 for FIFA scenario lookup.
     third_ranked = [
         ThirdPlaceCandidate(
-            ord(g) * 10 + 3, f"T{g}", f"T{g}", g, 3, 3, 2, 5
+            ord(g) * 10 + 3, f"T{g}", f"T{g}", g, 6 if g in "EFGHIJKL" else 1, 2, 3, 3
         )
-        for g in ["A", "B", "C", "D", "E", "F", "G", "H"]
+        for g in "ABCDEFGHIJKL"
     ]
     r32 = generate_r32_bracket(qualifiers, third_ranked, rules)
     assert all(m.team_a and m.team_b for m in r32)
@@ -74,8 +75,8 @@ def test_preview_placeholders_fill_later_rounds(rules):
     from app.services.group_simulation import ThirdPlaceCandidate
 
     third_ranked = [
-        ThirdPlaceCandidate(ord(g) * 10 + 3, f"T{g}", f"T{g}", g, 3, 3, 2, 5)
-        for g in ["A", "B", "C", "D", "E", "F", "G", "H"]
+        ThirdPlaceCandidate(ord(g) * 10 + 3, f"T{g}", f"T{g}", g, 6 if g in "EFGHIJKL" else 1, 2, 3, 3)
+        for g in "ABCDEFGHIJKL"
     ]
     r32 = generate_r32_bracket(qualifiers, third_ranked, rules)
     tree = build_knockout_tree(r32, rules, allow_placeholder_winners=True)

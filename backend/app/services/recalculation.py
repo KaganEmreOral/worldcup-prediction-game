@@ -177,6 +177,30 @@ async def recalculate_all(
             kp.bracket_slot: (kp.predicted_score_a, kp.predicted_score_b) for kp in user_ko_list
         }
 
+        if (
+            len(predictions) >= len(group_matches)
+            and len(group_matches) >= 72
+            and len(user_ko_score_map) >= 31
+        ):
+            from app.services.user_tournament_simulation import persist_user_tournament_state
+
+            try:
+                await persist_user_tournament_state(
+                    db,
+                    user.id,
+                    group_matches,
+                    knockout_matches,
+                    predictions,
+                    user_ko_score_map,
+                    teams_by_group,
+                )
+            except ValueError as exc:
+                logger.warning(
+                    "user_bracket_persist_skipped user_id=%s reason=%s",
+                    user.id,
+                    exc,
+                )
+
         if real_tree and predictions:
             user_tree = build_user_knockout_tree(
                 teams_by_group, predictions, group_matches, user_ko_score_map, rules

@@ -90,15 +90,34 @@ def _resolve_team_slot(
 def assign_third_place_teams(
     third_ranked: list,
     rules: dict,
+    *,
+    num_best_third: int | None = None,
 ) -> dict[int, BracketTeam]:
-    """Assign third-placed teams to R32 slots using FIFA Annex C scenario lookup."""
-    qualifying_groups = tuple(sorted(c.group_name for c in third_ranked))
+    """
+    Assign the best third-placed teams to R32 slots using FIFA Annex C scenario lookup.
+
+    third_ranked may contain all 12 group thirds (ranked); only the top num_best_third
+    participate in the scenario key and slot assignment.
+    """
+    num_best_third = num_best_third if num_best_third is not None else rules.get("best_third_count", 8)
+    qualifying = list(third_ranked)[:num_best_third]
+    if len(qualifying) < num_best_third:
+        raise ValueError(
+            f"Need {num_best_third} third-place teams for R32 assignment, got {len(qualifying)}"
+        )
+
+    qualifying_groups = tuple(sorted(c.group_name for c in qualifying))
     lookup = _build_scenario_lookup(rules)
+    if not lookup:
+        raise ValueError("Knockout rules missing third_place_scenarios — cannot assign 3rd-place teams")
+
     scenario = lookup.get(qualifying_groups)
     if not scenario:
-        return {}
+        raise ValueError(
+            f"No FIFA third-place scenario for qualifying groups {list(qualifying_groups)}"
+        )
 
-    third_by_group = {c.group_name: c for c in third_ranked}
+    third_by_group = {c.group_name: c for c in qualifying}
     assignments: dict[int, BracketTeam] = {}
     for match_num_str, group_letter in scenario.items():
         match_num = int(match_num_str)
@@ -110,7 +129,45 @@ def assign_third_place_teams(
                 team_code=candidate.team_code,
                 source=f"3rd-{candidate.group_name}",
             )
+
+    expected_slots = rules.get("third_place_slot_matches") or {}
+    if expected_slots:
+        missing_slots = [int(k) for k in expected_slots if int(k) not in assignments]
+        if missing_slots:
+            raise ValueError(
+                f"Third-place assignment incomplete for match(es) {missing_slots}"
+            )
+    elif len(assignments) < num_best_third:
+        raise ValueError(
+            f"Third-place assignment incomplete: {len(assignments)}/{num_best_third} slots filled"
+        )
+
     return assignments
+
+
+def validate_r32_bracket(matches: list[BracketMatch]) -> None:
+    """Hard validation: 16 matches, 32 unique teams, no empty slots."""
+    if len(matches) != 16:
+        raise ValueError(f"Round of 32 must have exactly 16 matches, got {len(matches)}")
+
+    missing: list[str] = []
+    team_ids: set[int] = set()
+    for m in matches:
+        if not m.team_a or not m.team_b:
+            missing.append(m.label or str(m.match_number))
+            continue
+        if m.team_a.team_id == m.team_b.team_id:
+            raise ValueError(f"R32 match {m.label} has the same team on both sides")
+        team_ids.add(m.team_a.team_id)
+        team_ids.add(m.team_b.team_id)
+
+    if missing:
+        raise ValueError(f"Round of 32 has unfilled slot(s): {', '.join(missing)}")
+
+    if len(team_ids) != 32:
+        raise ValueError(
+            f"Round of 32 must contain 32 unique teams, found {len(team_ids)}"
+        )
 
 
 def generate_r32_bracket(
@@ -118,9 +175,12 @@ def generate_r32_bracket(
     third_ranked: list,
     rules: dict | None = None,
 ) -> list[BracketMatch]:
+    """Build 16 R32 fixtures from group qualifiers + best third-place teams."""
     rules = rules or {}
     third_assignments = assign_third_place_teams(third_ranked, rules)
     r32_template = rules.get("r32_fixed", [])
+    if len(r32_template) != 16:
+        raise ValueError(f"r32_fixed template must define 16 matches, got {len(r32_template)}")
 
     matches: list[BracketMatch] = []
     for entry in r32_template:
@@ -129,6 +189,8 @@ def generate_r32_bracket(
         match_num = entry["match_number"]
 
         team_a = _resolve_team_slot(slot_a, group_qualifiers, third_assignments)
+        if slot_a == "3RD":
+            team_a = third_assignments.get(entry.get("third_slot_match", match_num))
         if slot_b == "3RD":
             team_b = third_assignments.get(entry.get("third_slot_match", match_num))
         else:
@@ -142,6 +204,8 @@ def generate_r32_bracket(
                 team_b=team_b,
             )
         )
+
+    validate_r32_bracket(matches)
     return matches
 
 
