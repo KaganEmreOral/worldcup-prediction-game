@@ -16,6 +16,7 @@ DETAIL_LABELS = {
     "group_winner": "Group winner (+5)",
     "full_group_bonus": "Perfect group (+10)",
     "knockout_advance": "Knockout progression",
+    "knockout_round_teams": "Correct teams at round",
     "finalist": "Correct finalist (+20)",
     "champion": "Champion correct (+40)",
     "knockout_exact": "Knockout exact score bonus",
@@ -59,9 +60,9 @@ def _outcome(score_a: int, score_b: int) -> str:
 
 def _enrich_detail(detail: dict) -> dict:
     t = detail.get("type", "")
-    if t == "knockout_advance":
+    if t in ("knockout_advance", "knockout_round_teams"):
         detail["label"] = (
-            f"{detail.get('stage', 'KO')} advancement: {detail.get('teams', 0)} teams "
+            f"{detail.get('stage', 'KO')}: {detail.get('teams', 0)} correct team(s) "
             f"(+{detail.get('points_each', 0)} each) = +{detail.get('points', 0)}"
         )
     elif t == "knockout_exact":

@@ -14,7 +14,7 @@ from app.services.prediction_validation import (
     load_teams_by_group,
     validate_prediction_submission,
 )
-from app.services.user_tournament_simulation import persist_user_tournament_state
+from app.services.user_prediction_tournament import persist_user_prediction_tournament
 
 from app.seeds.tournament_loader import get_active_tournament
 
@@ -132,7 +132,7 @@ async def submit_predictions(
     knockout_matches = await load_knockout_matches(db)
     teams_by_group = await load_teams_by_group(db)
 
-    tournament_state = await persist_user_tournament_state(
+    tournament_state = await persist_user_prediction_tournament(
         db,
         user.id,
         group_matches,
@@ -147,7 +147,9 @@ async def submit_predictions(
         "message": "Predictions submitted successfully",
         "count": len(data.predictions),
         "knockout_count": len(data.knockout_predictions),
-        "bracket_slots": sum(len(tournament_state["bracket"].get(s, [])) for s in ("R32", "R16", "QF", "SF", "F")),
+        "bracket_slots": sum(
+            len(tournament_state["bracket_tree"].get(s, [])) for s in ("R32", "R16", "QF", "SF", "F")
+        ),
         "state_hash": tournament_state["state_hash"],
     }
 

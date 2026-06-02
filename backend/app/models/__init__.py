@@ -234,6 +234,20 @@ class LeaderboardSnapshot(Base):
     rankings_json: Mapped[list] = mapped_column(JSONB, nullable=False)
 
 
+class RealTournamentState(Base):
+    """Universe B — canonical real tournament bracket (admin results only)."""
+
+    __tablename__ = "real_tournament_state"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id"), nullable=False, unique=True, index=True)
+    qualifiers_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    bracket_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    round_participants_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    champion_team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 class TournamentSettings(Base):
     __tablename__ = "tournament_settings"
 

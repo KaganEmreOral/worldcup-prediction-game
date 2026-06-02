@@ -66,6 +66,18 @@ MIGRATIONS = [
     );
     """,
     "CREATE INDEX IF NOT EXISTS ix_user_knockout_brackets_user_id ON user_knockout_brackets(user_id)",
+    """
+    CREATE TABLE IF NOT EXISTS real_tournament_state (
+        id SERIAL PRIMARY KEY,
+        tournament_id INTEGER NOT NULL UNIQUE REFERENCES tournaments(id),
+        qualifiers_json JSONB,
+        bracket_json JSONB,
+        round_participants_json JSONB,
+        champion_team_id INTEGER REFERENCES teams(id),
+        updated_at TIMESTAMPTZ DEFAULT now()
+    );
+    """,
+    "CREATE INDEX IF NOT EXISTS ix_real_tournament_state_tournament_id ON real_tournament_state(tournament_id)",
 ]
 
 

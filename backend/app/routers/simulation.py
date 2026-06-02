@@ -6,9 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.deps import get_current_user
 from app.database import get_db
 from app.models import GroupStandingsCache, KnockoutPrediction, Prediction, User
-from app.services.user_tournament_simulation import (
-    build_user_tournament_tree,
-    load_user_bracket_tree,
+from app.services.user_prediction_tournament import (
+    build_user_prediction_tournament,
+    load_user_prediction_tournament,
 )
 from app.services.tournament_config import get_knockout_rules
 from app.seeds.tournament_loader import get_active_tournament
@@ -58,7 +58,7 @@ async def preview_bracket_from_predictions(
                 ko_preds[slot] = (kp.get("predicted_score_a", 0), kp.get("predicted_score_b", 0))
 
     rules = await get_knockout_rules(db)
-    qualifiers, tree, _ = build_user_tournament_tree(
+    qualifiers, tree, _ = build_user_prediction_tournament(
         teams_by_group,
         group_matches,
         predictions,
@@ -76,7 +76,7 @@ async def get_my_bracket(
     db: AsyncSession = Depends(get_db),
 ):
     """Return user's simulated knockout bracket (cached after submit, or rebuilt live)."""
-    cached = await load_user_bracket_tree(db, user.id)
+    cached = await load_user_prediction_tournament(db, user.id)
     if cached:
         standings_result = await db.execute(
             select(GroupStandingsCache).where(GroupStandingsCache.user_id == user.id)
@@ -108,7 +108,7 @@ async def get_my_bracket(
     ko_preds = {kp.bracket_slot: (kp.predicted_score_a, kp.predicted_score_b) for kp in ko_result.scalars()}
 
     rules = await get_knockout_rules(db)
-    qualifiers, tree, _ = build_user_tournament_tree(
+    qualifiers, tree, _ = build_user_prediction_tournament(
         teams_by_group,
         group_matches,
         predictions,

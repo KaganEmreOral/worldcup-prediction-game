@@ -8,9 +8,9 @@ from app.models import Match, MatchStage, Team
 from app.schemas import PredictionBulkSubmit
 from app.seeds.tournament_loader import get_active_tournament
 from app.services.tournament_config import get_knockout_rules
-from app.services.user_tournament_simulation import (
-    build_user_tournament_tree,
-    validate_tree_no_tbd,
+from app.services.user_prediction_tournament import (
+    build_user_prediction_tournament,
+    validate_bracket_no_tbd,
 )
 
 
@@ -50,7 +50,7 @@ def _expected_knockout_labels(
     rules: dict,
 ) -> set[str]:
     """All knockout bracket_slot labels for this user's simulated groups."""
-    _, tree, _ = build_user_tournament_tree(
+    _, tree, _ = build_user_prediction_tournament(
         teams_by_group,
         group_matches,
         predictions,
@@ -113,7 +113,7 @@ async def validate_prediction_submission(db: AsyncSession, data: PredictionBulkS
             for kp in data.knockout_predictions
         }
         try:
-            _, tree, _ = build_user_tournament_tree(
+            _, tree, _ = build_user_prediction_tournament(
                 teams_by_group,
                 group_matches,
                 predictions_map,
@@ -121,7 +121,7 @@ async def validate_prediction_submission(db: AsyncSession, data: PredictionBulkS
                 rules,
                 allow_placeholder_winners=False,
             )
-            validate_tree_no_tbd(tree, strict=True)
+            validate_bracket_no_tbd(tree)
         except ValueError as exc:
             errors.append(str(exc))
 

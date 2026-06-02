@@ -25,12 +25,15 @@ from app.models import (
 )
 from app.services.cache import invalidate
 from app.services.group_simulation import MatchResult, compute_group_standings
-from app.services.knockout_scoring import (
-    build_real_knockout_tree,
-    build_user_knockout_tree,
-    real_knockout_preds_from_matches,
-    score_knockout_exact_bonuses,
-    score_knockout_progression,
+from app.services.knockout_scoring import score_knockout_round_participation
+from app.services.real_tournament_state import (
+    build_real_tournament_bracket,
+    load_real_tournament_state,
+    persist_real_tournament_state,
+)
+from app.services.user_prediction_tournament import (
+    build_user_prediction_tournament,
+    load_user_prediction_tournament,
 )
 from app.services.scoring_engine import (
     ScoreBreakdown,
@@ -105,8 +108,17 @@ async def recalculate_all(
 
     real_qualifiers = simulate_real_groups(teams_by_group, group_matches)
     rules = await get_knockout_rules(db)
-    real_ko_preds_map = real_knockout_preds_from_matches(knockout_matches)
-    real_tree = build_real_knockout_tree(teams_by_group, group_matches, real_ko_preds_map, rules)
+
+    real_tree: dict = {}
+    if tournament:
+        await persist_real_tournament_state(
+            db, tournament.id, teams_by_group, group_matches, knockout_matches, rules
+        )
+        real_tree = await load_real_tournament_state(db, tournament.id) or {}
+    if not real_tree:
+        _, real_tree = build_real_tournament_bracket(
+            teams_by_group, group_matches, knockout_matches, rules
+        )
 
     leaderboard = []
     recent_events: list[dict] = []
@@ -182,10 +194,10 @@ async def recalculate_all(
             and len(group_matches) >= 72
             and len(user_ko_score_map) >= 31
         ):
-            from app.services.user_tournament_simulation import persist_user_tournament_state
+            from app.services.user_prediction_tournament import persist_user_prediction_tournament
 
             try:
-                await persist_user_tournament_state(
+                await persist_user_prediction_tournament(
                     db,
                     user.id,
                     group_matches,
@@ -196,35 +208,28 @@ async def recalculate_all(
                 )
             except ValueError as exc:
                 logger.warning(
-                    "user_bracket_persist_skipped user_id=%s reason=%s",
+                    "user_prediction_tournament.persist_skipped user_id=%s reason=%s",
                     user.id,
                     exc,
                 )
 
-        if real_tree and predictions:
-            user_tree = build_user_knockout_tree(
-                teams_by_group, predictions, group_matches, user_ko_score_map, rules
-            )
-            kp_pts, kp_det = score_knockout_progression(user_tree, real_tree)
+        user_tree = await load_user_prediction_tournament(db, user.id)
+        if not user_tree and predictions and user_ko_score_map:
+            try:
+                _, user_tree, _ = build_user_prediction_tournament(
+                    teams_by_group,
+                    group_matches,
+                    predictions,
+                    user_ko_score_map,
+                    rules,
+                )
+            except ValueError:
+                user_tree = {}
+
+        if real_tree and user_tree:
+            kp_pts, kp_det = score_knockout_round_participation(user_tree, real_tree)
             breakdown.knockout_progression_points += kp_pts
             breakdown.details.extend(kp_det)
-
-        ke_pts, ke_det = score_knockout_exact_bonuses(user_ko_preds, knockout_matches)
-        breakdown.knockout_exact_points += ke_pts
-        breakdown.details.extend(ke_det)
-
-        for slot, m in {m.bracket_slot: m for m in knockout_matches if m.bracket_slot}.items():
-            kp = user_ko_preds.get(slot)
-            if not kp or m.real_score_a is None:
-                continue
-            pts = sum(d.get("points", 0) for d in ke_det if d.get("bracket_slot") == slot)
-            if pts > 0:
-                entry = build_match_score_entry(
-                    m, kp.predicted_score_a, kp.predicted_score_b, m.real_score_a, m.real_score_b,
-                    pts, [], bracket_slot=slot,
-                )
-                breakdown.match_scores.append(entry)
-                recent_events.append({**entry, "user_name": user.name, "user_id": user.id})
 
         sp_result = await db.execute(select(SpecialPrediction).where(SpecialPrediction.user_id == user.id))
         sp = sp_result.scalar_one_or_none()
@@ -253,8 +258,8 @@ async def recalculate_all(
             "qualification": breakdown.qualification_points,
             "group_winner": breakdown.group_winner_points,
             "full_group_bonus": breakdown.full_group_bonus,
-            "knockout_progression": breakdown.knockout_progression_points,
-            "knockout_exact": breakdown.knockout_exact_points,
+            "knockout_round_participation": breakdown.knockout_progression_points,
+            "knockout_exact": 0,
             "special": breakdown.special_points,
             "details": [_enrich_detail(d) if "label" not in d else d for d in breakdown.details[:200]],
             "match_scores": breakdown.match_scores,

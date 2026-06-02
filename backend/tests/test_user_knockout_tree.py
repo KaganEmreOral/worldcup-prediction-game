@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from app.services.knockout_generator import build_knockout_tree, generate_r32_bracket, load_rules_from_dict
-from app.services.user_tournament_simulation import validate_tree_no_tbd
+from app.services.user_prediction_tournament import validate_bracket_no_tbd as validate_tree_no_tbd
 
 SEEDS = Path(__file__).resolve().parent.parent / "app" / "seeds" / "tournaments" / "worldcup_2026"
 

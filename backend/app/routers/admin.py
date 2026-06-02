@@ -69,7 +69,7 @@ async def rebuild_user_bracket(
 ):
     """Rebuild per-user R32→Final bracket from stored predictions (fixes empty 3rd-place slots)."""
     from app.services.prediction_validation import load_group_matches, load_knockout_matches, load_teams_by_group
-    from app.services.user_tournament_simulation import persist_user_tournament_state
+    from app.services.user_prediction_tournament import persist_user_prediction_tournament
 
     pred_result = await db.execute(select(Prediction).where(Prediction.user_id == user_id))
     predictions = {p.match_id: (p.predicted_score_a, p.predicted_score_b) for p in pred_result.scalars()}
@@ -87,7 +87,7 @@ async def rebuild_user_bracket(
     teams_by_group = await load_teams_by_group(db)
 
     try:
-        state = await persist_user_tournament_state(
+        state = await persist_user_prediction_tournament(
             db,
             user_id,
             group_matches,
@@ -100,7 +100,7 @@ async def rebuild_user_bracket(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     await db.flush()
-    r32 = state["bracket"].get("R32", [])
+    r32 = state["bracket_tree"].get("R32", [])
     return {
         "message": f"Bracket rebuilt for user {user_id}",
         "state_hash": state["state_hash"],
@@ -363,8 +363,8 @@ async def populate_knockout_bracket(
     admin: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """Fill knockout match team slots from real group-stage results (admin truth)."""
-    from app.services.knockout_scoring import build_real_knockout_tree, real_knockout_preds_from_matches
+    """Fill knockout match team slots from real group-stage results (Universe B)."""
+    from app.services.real_tournament_state import build_real_tournament_bracket, persist_real_tournament_state
 
     tournament = await get_active_tournament(db)
     q = select(Team)
@@ -383,8 +383,7 @@ async def populate_knockout_bracket(
             teams_by_group.setdefault(t.group_name, []).append((t.id, t.name, t.code))
 
     rules = await get_knockout_rules(db)
-    ko_preds = real_knockout_preds_from_matches(knockout_matches)
-    tree = build_real_knockout_tree(teams_by_group, group_matches, ko_preds, rules)
+    _, tree = build_real_tournament_bracket(teams_by_group, group_matches, knockout_matches, rules)
     if not tree:
         raise HTTPException(status_code=400, detail="Enter all group-stage results before generating knockout bracket")
 
@@ -408,8 +407,16 @@ async def populate_knockout_bracket(
             m.team_b_id = tb_id
             updated += 1
 
+    if tournament:
+        await persist_real_tournament_state(
+            db, tournament.id, teams_by_group, group_matches, knockout_matches, rules
+        )
     await db.flush()
-    return {"message": f"Updated {updated} knockout matches from real group results", "bracket_stages": list(tree.keys())}
+    return {
+        "message": f"Updated {updated} knockout matches from real group results",
+        "bracket_stages": list(tree.keys()),
+        "universe": "real_tournament_state",
+    }
 
 
 @router.get("/tournament/preview-bracket")
